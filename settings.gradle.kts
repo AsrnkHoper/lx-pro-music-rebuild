@@ -1,22 +1,36 @@
+// ⚠️ 阿里云镜像**只在非 CI 环境**启用。
+//
+// 原因（2026-10-01 实测）：GitHub Actions 的 runner 在海外，访问 maven.aliyun.com 返回 **502**；
+// 而 Gradle 遇到 5xx 会**直接让本次解析失败**，不会回退到列表里的下一个仓库 ——
+// 结果就是本地能编、CI 报 “could not resolve plugin artifact”。
+// 因此 CI 走官方仓库（实测 repo1.maven.org / plugins.gradle.org 均 200）。
+//
+// 注意：`pluginManagement {}` 必须是本脚本的第一个块，故此处只能内联条件。
+
 pluginManagement {
     includeBuild("build-logic")
     repositories {
-        // 阿里云镜像加速（国内网络）
-        maven("https://maven.aliyun.com/repository/gradle-plugin")
-        maven("https://maven.aliyun.com/repository/google")
-        maven("https://maven.aliyun.com/repository/public")
+        if (System.getenv("CI").isNullOrEmpty()) {
+            maven("https://maven.aliyun.com/repository/gradle-plugin")
+            maven("https://maven.aliyun.com/repository/google")
+            maven("https://maven.aliyun.com/repository/public")
+        }
         google()
         mavenCentral()
         gradlePluginPortal()
     }
 }
 
+val useAliyunMirror: Boolean = System.getenv("CI").isNullOrEmpty()
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
-        maven("https://maven.aliyun.com/repository/google")
-        maven("https://maven.aliyun.com/repository/public")
-        maven("https://maven.aliyun.com/repository/central")
+        if (useAliyunMirror) {
+            maven("https://maven.aliyun.com/repository/google")
+            maven("https://maven.aliyun.com/repository/public")
+            maven("https://maven.aliyun.com/repository/central")
+        }
         google()
         mavenCentral()
     }
