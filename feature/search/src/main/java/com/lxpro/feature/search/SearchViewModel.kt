@@ -3,9 +3,15 @@ package com.lxpro.feature.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lxpro.core.common.TextNormalizer
+import com.lxpro.core.datastore.SettingsRepository
+import com.lxpro.core.library.LocalMusicRepository
+import com.lxpro.core.library.toSong
+import com.lxpro.core.model.LOCAL_SOURCE_NAME
+import com.lxpro.core.model.SearchMode
 import com.lxpro.core.model.Song
 import com.lxpro.source.api.SourceRegistry
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,8 +19,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
+
+/**
+ * 搜索结果项。
+ * ⚠️ 15 §5：**每个可播放项必须带来源**，UI 层不得出现「不知道来源」的歌曲行。
+ */
+data class SearchResultItem(
+    val song: Song,
+    val originLabel: String,
+)
 
 /**
  * ⚠️ 这里**只有搜索结果**，**不含输入框文本**。
@@ -26,7 +43,7 @@ import javax.inject.Inject
 data class SearchUiState(
     val loading: Boolean = false,
     val loadingMore: Boolean = false,
-    val results: List<Song> = emptyList(),
+    val results: List<SearchResultItem> = emptyList(),
     val hasMore: Boolean = false,
     val page: Int = 1,
     val error: String? = null,
@@ -38,9 +55,15 @@ data class SearchUiState(
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val registry: SourceRegistry,
+    private val settings: SettingsRepository,
+    private val localMusic: LocalMusicRepository,
 ) : ViewModel() {
 
     private val keywordInput = MutableStateFlow("")
+
+    /** 双模式状态（15 §4.1）：全局单例、跨页面保持，落盘在 DataStore */
+    private val _mode = MutableStateFlow(SearchMode.ONLINE)
+    val mode: StateFlow<SearchMode> = _mode.asStateFlow()
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
@@ -48,6 +71,10 @@ class SearchViewModel @Inject constructor(
     private var currentQuery: String = ""
 
     init {
+        viewModelScope.launch {
+            _mode.value = settings.searchMode.first()
+            localMusic.refreshCache()
+        }
         viewModelScope.launch {
             keywordInput
                 .debounce(DEBOUNCE_MS)
@@ -59,6 +86,20 @@ class SearchViewModel @Inject constructor(
     /** 输入框每次变化都调它；真正的请求由防抖后的流触发 */
     fun onKeywordChange(value: String) {
         keywordInput.value = value
+    }
+
+    /**
+     * 切换模式。
+     * ⚠️ 硬性行为 #1：**保留搜索关键词并立即重搜**（用户常「在线搜不到 → 切本地看看」），
+     * 因此这里**不走防抖**、直接搜。
+     */
+    fun onModeChange(mode: SearchMode) {
+        if (_mode.value == mode) return
+        _mode.value = mode
+        viewModelScope.launch {
+            settings.setSearchMode(mode)
+            search(keywordInput.value, page = 1)
+        }
     }
 
     fun loadMore() {
@@ -78,11 +119,6 @@ class SearchViewModel @Inject constructor(
             _uiState.value = SearchUiState()
             return
         }
-        val source = registry.enabled.value.firstOrNull()
-        if (source == null) {
-            _uiState.value = SearchUiState(error = "没有可用的音源", searched = true)
-            return
-        }
 
         currentQuery = raw
         val isFirstPage = page == 1
@@ -93,17 +129,46 @@ class SearchViewModel @Inject constructor(
             results = if (isFirstPage) emptyList() else _uiState.value.results,
         )
 
+        when (_mode.value) {
+            SearchMode.LOCAL -> searchLocal(raw)
+            SearchMode.ONLINE -> searchOnline(raw, page)
+        }
+    }
+
+    private suspend fun searchLocal(raw: String) {
+        val items = withContext(Dispatchers.Default) {
+            localMusic.searchInMemory(raw).map {
+                SearchResultItem(song = it.toSong(), originLabel = LOCAL_SOURCE_NAME)
+            }
+        }
+        _uiState.value = SearchUiState(
+            results = items,
+            hasMore = false,
+            page = 1,
+            searched = true,
+            error = if (items.isEmpty()) "本地曲库里没有匹配「$raw」，试试切到在线音源" else null,
+        )
+    }
+
+    private suspend fun searchOnline(raw: String, page: Int) {
+        val source = registry.enabled.value.firstOrNull()
+        if (source == null) {
+            _uiState.value = SearchUiState(error = "没有可用的音源", searched = true)
+            return
+        }
+
         runCatching { source.search(raw, page = page, limit = PAGE_SIZE) }
             .onSuccess { result ->
-                val merged = (if (isFirstPage) result.list else _uiState.value.results + result.list)
+                val incoming = result.list.map { SearchResultItem(it, source.name) }
+                val merged = (if (page == 1) incoming else _uiState.value.results + incoming)
                     // 分页去重：LazyColumn 的 key 不能重复，否则运行时崩溃
-                    .distinctBy { "${it.source.value}:${it.id}" }
+                    .distinctBy { "${it.song.source.value}:${it.song.id}" }
                 _uiState.value = SearchUiState(
                     results = merged,
                     hasMore = result.hasMore,
                     page = page,
                     searched = true,
-                    error = if (merged.isEmpty()) "没有找到结果" else null,
+                    error = if (merged.isEmpty()) "在线音源里没有匹配「$raw」" else null,
                 )
             }
             .onFailure { throwable ->

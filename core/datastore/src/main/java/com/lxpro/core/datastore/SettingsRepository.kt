@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.lxpro.core.model.SearchMode
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -28,6 +29,7 @@ class SettingsRepository @Inject constructor(
         val paletteId = stringPreferencesKey("palette_id")
         val ambientEnabled = booleanPreferencesKey("ambient_enabled")
         val preferredQuality = stringPreferencesKey("preferred_quality")
+        val searchMode = stringPreferencesKey("search_mode")
     }
 
     /** 当前配色 id；null 表示从未选择，由上层回落 [LXPalette.default] 对应的 id */
@@ -37,6 +39,17 @@ class SettingsRepository @Inject constructor(
     val ambientEnabled: Flow<Boolean> = context.lxProDataStore.data.map { it[Keys.ambientEnabled] ?: true }
 
     val preferredQuality: Flow<String?> = context.lxProDataStore.data.map { it[Keys.preferredQuality] }
+
+    /**
+     * 双模式状态（15 §4.1：全局单例、跨页面保持；首页与搜索页共用）。
+     * 落盘是为了重启后仍是用户上次选的模式。
+     */
+    val searchMode: Flow<SearchMode> = context.lxProDataStore.data
+        .map { SearchMode.fromId(it[Keys.searchMode]) }
+
+    suspend fun setSearchMode(mode: SearchMode) {
+        context.lxProDataStore.edit { it[Keys.searchMode] = mode.name }
+    }
 
     suspend fun setPaletteId(id: String) {
         context.lxProDataStore.edit { it[Keys.paletteId] = id }

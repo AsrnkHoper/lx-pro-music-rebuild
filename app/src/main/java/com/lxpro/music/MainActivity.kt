@@ -19,6 +19,7 @@ import com.lxpro.core.designsystem.ambient.LXAmbientBackground
 import com.lxpro.core.designsystem.component.LXMiniPlayerBar
 import com.lxpro.core.designsystem.theme.LXTheme
 import com.lxpro.feature.home.HomeScreen
+import com.lxpro.feature.library.LocalLibraryScreen
 import com.lxpro.feature.player.PlayerScreen
 import com.lxpro.feature.search.SearchScreen
 import com.lxpro.music.ui.AboutScreen
@@ -27,6 +28,7 @@ import dagger.hilt.android.AndroidEntryPoint
 object Routes {
     const val HOME = "home"
     const val SEARCH = "search"
+    const val LIBRARY = "library"
     const val PLAYER = "player"
     const val ABOUT = "about"
 }
@@ -66,11 +68,19 @@ class MainActivity : ComponentActivity() {
                                         ambientEnabled = ambientEnabled,
                                         onAmbientChange = appViewModel::setAmbientEnabled,
                                         onOpenSearch = { navController.navigate(Routes.SEARCH) },
+                                        onOpenLocalLibrary = { navController.navigate(Routes.LIBRARY) },
                                         onOpenAbout = { navController.navigate(Routes.ABOUT) },
                                     )
                                 }
                                 composable(Routes.SEARCH) {
                                     SearchScreen(
+                                        onSongClick = { song, queue ->
+                                            playerViewModel.play(song, queue)
+                                        },
+                                    )
+                                }
+                                composable(Routes.LIBRARY) {
+                                    LocalLibraryScreen(
                                         onSongClick = { song, queue ->
                                             playerViewModel.play(song, queue)
                                         },

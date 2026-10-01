@@ -7,6 +7,27 @@ import kotlinx.serialization.Serializable
 @Serializable
 value class SourceId(val value: String)
 
+/** 本地音乐的伪音源 id（不走音源脚本，直接播放本地文件） */
+val LOCAL_SOURCE_ID = SourceId("local")
+
+const val LOCAL_SOURCE_NAME = "本地"
+
+/**
+ * 双模式（15 §4）。全局单例、跨页面保持，且首页与搜索页共用同一份状态。
+ *
+ * ⚠️ 切换模式必须**保留搜索关键词并立即重搜** —— 用户常「在线搜不到 → 切本地看看」。
+ */
+enum class SearchMode {
+    ONLINE,
+    LOCAL,
+    ;
+
+    companion object {
+        fun fromId(value: String?): SearchMode =
+            entries.firstOrNull { it.name.equals(value, ignoreCase = true) } ?: ONLINE
+    }
+}
+
 /** 音质档位（02 §6.1） */
 @Serializable
 enum class Quality(val value: String) {

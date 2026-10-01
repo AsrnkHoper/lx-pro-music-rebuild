@@ -47,11 +47,13 @@ dependencies {
     implementation(project(":core:database"))
     implementation(project(":core:network"))
     implementation(project(":core:media"))
+    implementation(project(":core:library"))
     implementation(project(":source:api"))
     implementation(project(":source:bilibili"))
     implementation(project(":feature:home"))
     implementation(project(":feature:search"))
     implementation(project(":feature:player"))
+    implementation(project(":feature:library"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

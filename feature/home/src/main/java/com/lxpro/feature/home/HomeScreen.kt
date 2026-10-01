@@ -40,6 +40,7 @@ fun HomeScreen(
     ambientEnabled: Boolean,
     onAmbientChange: (Boolean) -> Unit,
     onOpenSearch: () -> Unit,
+    onOpenLocalLibrary: () -> Unit,
     onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -104,6 +105,11 @@ fun HomeScreen(
         LXSectionHeader(title = "搜索")
         TextButton(onClick = onOpenSearch) {
             Text(text = "搜索歌曲（内置小哔音乐）", style = LXType.labelLarge, color = colors.accent)
+        }
+
+        Spacer(Modifier.height(4.dp))
+        TextButton(onClick = onOpenLocalLibrary) {
+            Text(text = "本地音乐（扫描 / 导入 / 播放）", style = LXType.labelLarge, color = colors.accent)
         }
 
         Spacer(Modifier.height(scalars.sectionGap))

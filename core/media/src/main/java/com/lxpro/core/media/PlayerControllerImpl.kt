@@ -8,6 +8,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.lxpro.core.model.Quality
 import com.lxpro.core.model.Song
+import com.lxpro.core.model.LOCAL_SOURCE_ID
 import com.lxpro.core.network.RequestHeaderStrategy
 import com.lxpro.source.api.SourceRegistry
 import kotlinx.coroutines.CoroutineScope
@@ -200,23 +201,28 @@ class PlayerControllerImpl @Inject constructor(
     }
 
     private suspend fun loadAndPlay(song: Song) {
-        val source = sources.byId(song.source) ?: error("音源不可用：${song.source.value}")
-        val musicUrl = source.getMusicUrl(song, currentQuality)
-
-        // ⚠️ 请求头随 spec 走（per-request），不要用全局 setDefaultRequestProperties
-        val headers = headerStrategy.headersFor(song) +
-            ("User-Agent" to headerStrategy.userAgentFor(song.source))
-        val uri = HeaderAwareDataSource.buildUri(musicUrl.url, headers)
-
         val metadata = MediaMetadata.Builder()
             .setTitle(song.name)
             .setArtist(song.singer)
             .apply { song.picUrl?.let { setArtworkUri(Uri.parse(it)) } }
             .build()
 
+        val mediaUri: Uri = if (song.source == LOCAL_SOURCE_ID) {
+            // 本地文件：直连文件，不走网络、不注入任何请求头
+            val fileUri = song.raw["uri"] ?: error("本地曲目缺少文件地址")
+            Uri.parse(fileUri)
+        } else {
+            val source = sources.byId(song.source) ?: error("音源不可用：${song.source.value}")
+            val musicUrl = source.getMusicUrl(song, currentQuality)
+            // ⚠️ 请求头随 spec 走（per-request），不要用全局 setDefaultRequestProperties
+            val headers = headerStrategy.headersFor(song) +
+                ("User-Agent" to headerStrategy.userAgentFor(song.source))
+            HeaderAwareDataSource.buildUri(musicUrl.url, headers)
+        }
+
         player.setMediaItem(
             MediaItem.Builder()
-                .setUri(uri)
+                .setUri(mediaUri)
                 .setMediaId("${song.source.value}:${song.id}")
                 .setMediaMetadata(metadata)
                 .build(),

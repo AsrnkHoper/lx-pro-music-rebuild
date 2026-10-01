@@ -37,14 +37,20 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.lxpro.core.designsystem.component.LXPillChip
 import com.lxpro.core.designsystem.theme.LXTheme
 import com.lxpro.core.designsystem.theme.LXType
 import com.lxpro.core.designsystem.theme.lxSafeDrawingPadding
+import com.lxpro.core.model.SearchMode
 import com.lxpro.core.model.Song
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
- * 搜索页（M1：在线音源单模式；双模式与类型筛选留到 M2/M3）。
+ * 搜索页（双模式）。
+ *
+ * ⚠️ 两条硬性规格：
+ * - 15 §4.2 #2：**模式入口位于搜索框正下方**（这是产品定位的 UI 体现）
+ * - 15 §5：每行都要标来源（在线音源名 / 本地）
  *
  * ⚠️ 输入框文本用**本地状态**（`rememberSaveable`），不绑到 ViewModel 的搜索结果状态上——
  * 否则防抖搜索完成后回写会让光标跳回最前（2026-10-02 真机踩坑）。
@@ -56,13 +62,14 @@ fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val mode by viewModel.mode.collectAsStateWithLifecycle()
     val colors = LXTheme.colors
     val scalars = LXTheme.scalars
 
     var query by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
 
-    // 触底加载下一页
+    // 触底加载下一页（本地模式没有分页，hasMore 恒为 false）
     LaunchedEffect(listState, state.results.size, state.hasMore, state.loadingMore) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
             .distinctUntilChanged()
@@ -93,7 +100,11 @@ fun SearchScreen(
             shape = RoundedCornerShape(16.dp),
             placeholder = {
                 Text(
-                    text = "搜索歌曲 / 视频（如 luvsicpt3）",
+                    text = if (mode == SearchMode.LOCAL) {
+                        "搜索本地曲库"
+                    } else {
+                        "搜索歌曲 / 视频（如 luvsicpt3）"
+                    },
                     style = LXType.bodyMedium,
                     color = colors.ink3,
                 )
@@ -112,6 +123,21 @@ fun SearchScreen(
             ),
         )
 
+        // 模式入口：紧贴搜索框下方（15 §4.2 #2）
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LXPillChip(
+                label = "在线音源",
+                selected = mode == SearchMode.ONLINE,
+                onClick = { viewModel.onModeChange(SearchMode.ONLINE) },
+            )
+            LXPillChip(
+                label = "本地音乐",
+                selected = mode == SearchMode.LOCAL,
+                onClick = { viewModel.onModeChange(SearchMode.LOCAL) },
+            )
+        }
+
         Spacer(Modifier.height(scalars.sectionGap))
 
         when {
@@ -123,7 +149,11 @@ fun SearchScreen(
                 Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(state.error.orEmpty(), style = LXType.bodyMedium, color = colors.ink2)
+                Text(
+                    text = state.error.orEmpty(),
+                    style = LXType.bodyMedium,
+                    color = colors.ink2,
+                )
             }
 
             !state.searched -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -137,11 +167,14 @@ fun SearchScreen(
             ) {
                 items(
                     items = state.results,
-                    key = { "${it.source.value}:${it.id}" },
+                    key = { "${it.song.source.value}:${it.song.id}" },
                     contentType = { "song" },
-                ) { song ->
+                ) { item ->
                     // 播放队列 = 当前搜索结果，点哪首就从哪首开始
-                    SongRow(song = song, onClick = { onSongClick(song, state.results) })
+                    SongRow(
+                        item = item,
+                        onClick = { onSongClick(item.song, state.results.map { it.song }) },
+                    )
                 }
                 if (state.loadingMore) {
                     item(key = "loading-more", contentType = "footer") {
@@ -163,8 +196,9 @@ fun SearchScreen(
 }
 
 @Composable
-private fun SongRow(song: Song, onClick: () -> Unit) {
+private fun SongRow(item: SearchResultItem, onClick: () -> Unit) {
     val colors = LXTheme.colors
+    val song = item.song
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -173,7 +207,7 @@ private fun SongRow(song: Song, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // 封面：B 站图床不校验 Referer，直接用 Coil 默认网络层即可
+        // 封面：B 站图床不校验 Referer，直接用 Coil 默认网络层即可；本地曲目暂无封面
         AsyncImage(
             model = song.picUrl,
             contentDescription = null,
@@ -195,7 +229,6 @@ private fun SongRow(song: Song, onClick: () -> Unit) {
                 text = buildString {
                     append(song.singer)
                     song.interval?.let { append("  ·  ").append(formatDuration(it)) }
-                    append("  ·  小哔音乐")
                 },
                 style = LXType.bodyMedium,
                 color = colors.ink2,
@@ -203,6 +236,13 @@ private fun SongRow(song: Song, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        // 来源标记（15 §5 跨页面强制）
+        Text(
+            text = item.originLabel,
+            style = LXType.labelSmall,
+            color = colors.ink3,
+            maxLines = 1,
+        )
     }
 }
 

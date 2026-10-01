@@ -3,6 +3,8 @@ package com.lxpro.core.database.di
 import android.content.Context
 import androidx.room.Room
 import com.lxpro.core.database.LXProDatabase
+import com.lxpro.core.database.MIGRATION_1_2
+import com.lxpro.core.database.dao.LocalTrackDao
 import com.lxpro.core.database.dao.SongDao
 import dagger.Module
 import dagger.Provides
@@ -19,9 +21,13 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): LXProDatabase =
         Room.databaseBuilder(context, LXProDatabase::class.java, "lxpro.db")
-            // 单进程，无需多实例失效通知（03 §8.3）
+            // ⚠️ 显式迁移，绝不 fallbackToDestructiveMigration（03 §6.3）
+            .addMigrations(MIGRATION_1_2)
             .build()
 
     @Provides
     fun provideSongDao(database: LXProDatabase): SongDao = database.songDao()
+
+    @Provides
+    fun provideLocalTrackDao(database: LXProDatabase): LocalTrackDao = database.localTrackDao()
 }
