@@ -19,7 +19,6 @@ import javax.inject.Inject
 
 data class LocalLibraryUiState(
     val scanning: Boolean = false,
-    val indexedCount: Int = 0,
     val lastOutcome: ScanOutcome? = null,
     val error: String? = null,
 )
@@ -32,7 +31,7 @@ class LocalLibraryViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(LocalLibraryUiState())
     val uiState: StateFlow<LocalLibraryUiState> = _uiState.asStateFlow()
 
-    /** 本地曲目（统一转成 Song，可直接进播放队列） */
+    /** 本地曲目（统一转成 Song，可直接进播放队列；已被仓储按指纹去重） */
     val tracks: StateFlow<List<Song>> = repository.observeTracks()
         .map { entities -> entities.map { it.toSong() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -45,11 +44,6 @@ class LocalLibraryViewModel @Inject constructor(
         viewModelScope.launch {
             // 进页面先把索引读进内存缓存，否则本地搜索会是空的
             repository.refreshCache()
-        }
-        viewModelScope.launch {
-            repository.trackCount.collect { count ->
-                _uiState.value = _uiState.value.copy(indexedCount = count)
-            }
         }
     }
 

@@ -12,9 +12,6 @@ interface LocalTrackDao {
     @Query("SELECT * FROM local_tracks ORDER BY dateAddedSec DESC")
     fun observeAll(): Flow<List<LocalTrackEntity>>
 
-    @Query("SELECT COUNT(*) FROM local_tracks")
-    fun observeCount(): Flow<Int>
-
     @Query("SELECT * FROM local_tracks")
     suspend fun all(): List<LocalTrackEntity>
 

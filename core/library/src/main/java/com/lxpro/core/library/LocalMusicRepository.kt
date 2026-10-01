@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,6 +22,7 @@ import javax.inject.Singleton
 data class ScanOutcome(
     val mediaStoreFound: Int,
     val safFound: Int,
+    val skippedAsDuplicate: Int,
     val failedRoots: Int,
     val scannedAt: Long,
 ) {
@@ -35,9 +37,13 @@ class LocalMusicRepository @Inject constructor(
     private val scanner: LocalMusicScanner,
 ) {
 
-    val trackCount: Flow<Int> = dao.observeCount()
-
-    fun observeTracks(): Flow<List<LocalTrackEntity>> = dao.observeAll()
+    /**
+     * 曲目列表。**已按指纹去重**：同一首歌既被媒体库索引、又被 SAF 目录扫到时只显示一条。
+     *
+     * ⚠️ 去重发生在展示层而不是删数据：DB 里两条 uri 都保留（来源不同、互不代表对方不存在），
+     * 未来可作「这条来源播不了就换另一条」的后备。
+     */
+    fun observeTracks(): Flow<List<LocalTrackEntity>> = dao.observeAll().map { it.dedupeByFingerprint() }
 
     val safRoots: Flow<List<SafRootEntity>> = safRootDao.observeAll()
 
@@ -46,7 +52,7 @@ class LocalMusicRepository @Inject constructor(
     val allTracks: StateFlow<List<LocalTrackEntity>> = cachedTracks.asStateFlow()
 
     suspend fun refreshCache() {
-        cachedTracks.value = dao.all()
+        cachedTracks.value = dao.all().dedupeByFingerprint()
     }
 
     /**
@@ -67,7 +73,9 @@ class LocalMusicRepository @Inject constructor(
         safRootDao.insert(
             SafRootEntity(treeUri = treeUri, displayName = displayName, addedAt = System.currentTimeMillis()),
         )
-        scanSafChannel(treeUri)
+        // 需要媒体库已索引的路径集合来做排除，因此这里先跑一次媒体库查询（只取路径）
+        val mediaScan = runCatching { scanner.scanMediaStore() }.getOrNull()
+        scanSafChannel(treeUri, mediaScan?.paths.orEmpty())
         refreshCache()
     }
 
@@ -81,45 +89,80 @@ class LocalMusicRepository @Inject constructor(
     /** 全量扫描：媒体库 + 所有已授权目录。 */
     suspend fun scan(): ScanOutcome {
         val scannedAt = System.currentTimeMillis()
-        val mediaStoreFound = scanMediaStoreChannel()
-        var safFound = 0
-        var failedRoots = 0
 
+        val mediaScan = runCatching { scanner.scanMediaStore() }.getOrNull()
+        val mediaStoreFound = persistMediaStore(mediaScan)
+
+        var safFound = 0
+        var skipped = 0
+        var failedRoots = 0
         safRootDao.all().forEach { root ->
-            val count = scanSafChannel(root.treeUri)
-            if (count == null) failedRoots++ else safFound += count
+            val result = scanSafChannel(root.treeUri, mediaScan?.paths.orEmpty())
+            if (result == null) {
+                failedRoots++
+            } else {
+                safFound += result.tracks.size
+                skipped += result.skippedAsDuplicate
+            }
         }
 
         refreshCache()
         return ScanOutcome(
             mediaStoreFound = mediaStoreFound,
             safFound = safFound,
+            skippedAsDuplicate = skipped,
             failedRoots = failedRoots,
             scannedAt = scannedAt,
         )
     }
 
-    private suspend fun scanMediaStoreChannel(): Int {
+    /** @return 入库条数；媒体库扫描失败（如未授权）时返回 0 且**不清除**已有索引 */
+    private suspend fun persistMediaStore(mediaScan: MediaStoreScan?): Int {
+        if (mediaScan == null) return 0
         val batch = System.currentTimeMillis()
-        // 扫描失败（如未授权）时**不清除**已有索引，否则一次失败就把库清空了
-        val scanned = runCatching { scanner.scanMediaStore() }.getOrElse { return 0 }
-        if (scanned.isNotEmpty()) {
-            dao.upsertAll(scanned.map { it.copy(lastScanBatch = batch) })
+        if (mediaScan.tracks.isNotEmpty()) {
+            dao.upsertAll(mediaScan.tracks.map { it.copy(lastScanBatch = batch) })
         }
         dao.deleteStaleByKind(LocalSourceKind.MEDIA_STORE, batch)
-        return scanned.size
+        return mediaScan.tracks.size
     }
 
-    /** @return 扫到的条数；null 表示该目录扫描失败（此时不做清除） */
-    private suspend fun scanSafChannel(treeUri: String): Int? {
+    /** @return 扫到的条数与被跳过（媒体库已收录）的条数；null 表示该目录扫描失败（此时不做清除） */
+    private suspend fun scanSafChannel(
+        treeUri: String,
+        excludePaths: Set<String>,
+    ): SafScan? {
         val batch = System.currentTimeMillis()
-        val scanned = runCatching { scanner.scanSafRoot(treeUri) }.getOrNull() ?: return null
-        if (scanned.isNotEmpty()) {
-            dao.upsertAll(scanned.map { it.copy(lastScanBatch = batch) })
+        val scanned = runCatching { scanner.scanSafRoot(treeUri, excludePaths) }.getOrNull()
+            ?: return null
+        if (scanned.tracks.isNotEmpty()) {
+            dao.upsertAll(scanned.tracks.map { it.copy(lastScanBatch = batch) })
         }
         dao.deleteStaleBySafRoot(treeUri, batch)
-        return scanned.size
+        return scanned
     }
+}
+
+/**
+ * 按指纹去重，同指纹**优先保留 media_store 行**。
+ *
+ * 为什么优先媒体库：它的元数据由系统解析、更规整，且封面走 `loadThumbnail` 稳定拿得到；
+ * SAF 行的标签要靠自己读 tag，封面还得退回读内嵌图。
+ *
+ * ⚠️ 这是兜底：主路径是扫描时就按文件路径排除重复（见 LocalMusicScanner.scanSafRoot）。
+ * 兜底存在的原因是——某些机型上媒体库的 `DATA` 列可能为空，路径比对会失效。
+ */
+private fun List<LocalTrackEntity>.dedupeByFingerprint(): List<LocalTrackEntity> {
+    if (size < 2) return this
+    val merged = LinkedHashMap<String, LocalTrackEntity>(size)
+    forEach { row ->
+        val existing = merged[row.fingerprint]
+        val preferRow = existing == null ||
+            (existing.sourceKind != LocalSourceKind.MEDIA_STORE &&
+                row.sourceKind == LocalSourceKind.MEDIA_STORE)
+        if (preferRow) merged[row.fingerprint] = row
+    }
+    return merged.values.sortedByDescending { it.dateAddedSec }
 }
 
 /** 本地曲目 → 统一 Song 模型（`raw["uri"]` 是播放器直接播放用的文件地址） */
@@ -130,7 +173,7 @@ fun LocalTrackEntity.toSong(): Song = Song(
     singer = artist,
     albumName = album,
     interval = durationMs / 1000,
-    // 封面走伪 URL：真实取图由 UI 层用 loadThumbnail 完成（见 LOCAL_ART_PREFIX 注释）
+    // 封面走伪 URL：真实取图由 UI 层用 loadThumbnail / 内嵌图完成（见 LOCAL_ART_PREFIX 注释）
     picUrl = LOCAL_ART_PREFIX + Uri.encode(uri),
     raw = mapOf("uri" to uri),
 )

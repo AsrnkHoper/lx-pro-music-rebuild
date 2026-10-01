@@ -111,7 +111,8 @@ fun LocalLibraryScreen(
         LXCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(LXDimens.space16)) {
                 Text(
-                    text = "已索引 ${state.indexedCount} 首",
+                    // 用列表长度而不是「数据库行数」：行数含同一首歌的两条通道记录，会虚高
+                    text = "已索引 ${tracks.size} 首",
                     style = LXType.titleSmall,
                     color = colors.ink1,
                 )
@@ -120,11 +121,17 @@ fun LocalLibraryScreen(
                     text = state.lastOutcome?.let { outcome ->
                         val base = "上次扫描：媒体库 ${outcome.mediaStoreFound} 首" +
                             " · 授权目录 ${outcome.safFound} 首"
-                        if (outcome.failedRoots > 0) {
-                            "$base（${outcome.failedRoots} 个目录读取失败，其索引已保留）"
+                        val skipped = if (outcome.skippedAsDuplicate > 0) {
+                            "（已跳过 ${outcome.skippedAsDuplicate} 首媒体库已收录的重复）"
                         } else {
-                            base
+                            ""
                         }
+                        val failed = if (outcome.failedRoots > 0) {
+                            "；${outcome.failedRoots} 个目录读取失败，其索引已保留"
+                        } else {
+                            ""
+                        }
+                        base + skipped + failed
                     } ?: "还没有扫描过本机音乐",
                     style = LXType.labelLarge,
                     color = colors.ink2,
