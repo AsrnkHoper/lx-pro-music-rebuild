@@ -20,6 +20,7 @@ import com.lxpro.core.designsystem.component.LXMiniPlayerBar
 import com.lxpro.core.designsystem.theme.LXTheme
 import com.lxpro.feature.home.HomeScreen
 import com.lxpro.feature.library.LocalLibraryScreen
+import com.lxpro.feature.player.LyricsViewModel
 import com.lxpro.feature.player.PlayerScreen
 import com.lxpro.feature.search.SearchScreen
 import com.lxpro.music.ui.AboutScreen
@@ -87,8 +88,13 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                                 composable(Routes.PLAYER) {
+                                    // 歌词 VM 挂在播放页的路由作用域上：只在打开播放页时取词
+                                    val lyricsViewModel: LyricsViewModel = hiltViewModel()
+                                    val lyricsState by lyricsViewModel.uiState
+                                        .collectAsStateWithLifecycle()
                                     PlayerScreen(
                                         state = playerState,
+                                        lyrics = lyricsState,
                                         onBack = { navController.popBackStack() },
                                         onTogglePlay = playerViewModel::togglePlayPause,
                                         onPrevious = playerViewModel::previous,
