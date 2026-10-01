@@ -1,0 +1,19 @@
+*.iml
+.gradle/
+/local.properties
+local.properties
+/.idea/
+.DS_Store
+
+# 构建产物（含 build-logic 等嵌套模块）
+build/
+**/build/
+/captures
+.externalNativeBuild
+.cxx
+
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+keystore.properties
