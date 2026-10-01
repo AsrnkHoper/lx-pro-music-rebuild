@@ -15,11 +15,13 @@ import androidx.navigation.compose.rememberNavController
 import com.lxpro.core.designsystem.ambient.LXAmbientBackground
 import com.lxpro.core.designsystem.theme.LXTheme
 import com.lxpro.feature.home.HomeScreen
+import com.lxpro.feature.search.SearchScreen
 import com.lxpro.music.ui.AboutScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 object Routes {
     const val HOME = "home"
+    const val SEARCH = "search"
     const val ABOUT = "about"
 }
 
@@ -49,8 +51,12 @@ class MainActivity : ComponentActivity() {
                                 onPaletteSelected = viewModel::selectPalette,
                                 ambientEnabled = ambientEnabled,
                                 onAmbientChange = viewModel::setAmbientEnabled,
+                                onOpenSearch = { navController.navigate(Routes.SEARCH) },
                                 onOpenAbout = { navController.navigate(Routes.ABOUT) },
                             )
+                        }
+                        composable(Routes.SEARCH) {
+                            SearchScreen(onSongClick = { /* M1-B 接播放 */ })
                         }
                         composable(Routes.ABOUT) {
                             AboutScreen(onBack = { navController.popBackStack() })

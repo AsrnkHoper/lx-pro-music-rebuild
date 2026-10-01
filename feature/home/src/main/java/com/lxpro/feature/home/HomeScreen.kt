@@ -39,6 +39,7 @@ fun HomeScreen(
     onPaletteSelected: (LXPalette) -> Unit,
     ambientEnabled: Boolean,
     onAmbientChange: (Boolean) -> Unit,
+    onOpenSearch: () -> Unit,
     onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -96,6 +97,13 @@ fun HomeScreen(
                 }
                 Switch(checked = ambientEnabled, onCheckedChange = onAmbientChange)
             }
+        }
+
+        Spacer(Modifier.height(scalars.sectionGap))
+
+        LXSectionHeader(title = "搜索")
+        TextButton(onClick = onOpenSearch) {
+            Text(text = "搜索歌曲（内置小哔音乐）", style = LXType.labelLarge, color = colors.accent)
         }
 
         Spacer(Modifier.height(scalars.sectionGap))

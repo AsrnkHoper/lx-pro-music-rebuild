@@ -51,6 +51,8 @@ include(":core:media")
 
 // 音源体系
 include(":source:api")
+include(":source:bilibili")
 
 // 功能模块（其余模块随里程碑增设，见 06-开发路线图与里程碑）
 include(":feature:home")
+include(":feature:search")
