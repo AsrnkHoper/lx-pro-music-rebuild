@@ -5,8 +5,10 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.lxpro.core.database.dao.LocalTrackDao
+import com.lxpro.core.database.dao.SafRootDao
 import com.lxpro.core.database.dao.SongDao
 import com.lxpro.core.database.entity.LocalTrackEntity
+import com.lxpro.core.database.entity.SafRootEntity
 import com.lxpro.core.database.entity.SongEntity
 
 /**
@@ -15,23 +17,26 @@ import com.lxpro.core.database.entity.SongEntity
  * ⚠️ **禁止** `fallbackToDestructiveMigration()`（会丢用户数据，03 §6.3）；
  * schema 导出到本模块 `schemas/` 并提交 git。
  *
- * v2：新增 `local_tracks`（M2 本地音乐索引）。
+ * - v2：新增 `local_tracks`（M2 本地音乐索引）
+ * - v3：`local_tracks` 增加来源通道（media_store / saf）+ `saf_roots`（M2 SAF 目录授权）
  */
 @Database(
-    entities = [SongEntity::class, LocalTrackEntity::class],
-    version = 2,
+    entities = [SongEntity::class, LocalTrackEntity::class, SafRootEntity::class],
+    version = 3,
     exportSchema = true,
 )
 abstract class LXProDatabase : RoomDatabase() {
     abstract fun songDao(): SongDao
 
     abstract fun localTrackDao(): LocalTrackDao
+
+    abstract fun safRootDao(): SafRootDao
 }
 
 /**
  * v1 → v2：建 `local_tracks` 表与其两个索引。
  *
- * ⚠️ SQL 必须与 Room 生成的 schema **逐字一致**（列类型、NOT NULL、索引名）。
+ * ⚠️ SQL 必须与 Room 生成的 schema **逐字一致**（列类型、NOT NULL、默认值、索引名）。
  * 校验方法：构建后比对 `schemas/com.lxpro.core.database.LXProDatabase/2.json` 里的 `createSql`。
  */
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -59,6 +64,36 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS `index_local_tracks_folder` " +
                 "ON `local_tracks` (`folder`)",
+        )
+    }
+}
+
+/**
+ * v2 → v3：本地音乐加「来源通道」（MediaStore / SAF）+ SAF 授权目录表。
+ *
+ * ⚠️ 同样必须与生成的 `schemas/.../3.json` 逐字一致。
+ * 存量行一律视为 media_store（它们在 v2 时只可能来自媒体库扫描）。
+ */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE `local_tracks` ADD COLUMN `sourceKind` TEXT NOT NULL DEFAULT 'media_store'",
+        )
+        db.execSQL("ALTER TABLE `local_tracks` ADD COLUMN `safRootUri` TEXT")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_local_tracks_sourceKind` " +
+                "ON `local_tracks` (`sourceKind`)",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_local_tracks_safRootUri` " +
+                "ON `local_tracks` (`safRootUri`)",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `saf_roots` (" +
+                "`treeUri` TEXT NOT NULL, " +
+                "`displayName` TEXT NOT NULL, " +
+                "`addedAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`treeUri`))",
         )
     }
 }

@@ -2,6 +2,7 @@ package com.lxpro.feature.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lxpro.core.database.entity.SafRootEntity
 import com.lxpro.core.library.LocalMusicRepository
 import com.lxpro.core.library.ScanOutcome
 import com.lxpro.core.library.toSong
@@ -36,6 +37,10 @@ class LocalLibraryViewModel @Inject constructor(
         .map { entities -> entities.map { it.toSong() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** 用户通过 SAF 授权的目录 */
+    val safRoots: StateFlow<List<SafRootEntity>> = repository.safRoots
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     init {
         viewModelScope.launch {
             // 进页面先把索引读进内存缓存，否则本地搜索会是空的
@@ -61,6 +66,29 @@ class LocalLibraryViewModel @Inject constructor(
                         scanning = false,
                         error = throwable.message ?: "扫描失败",
                     )
+                }
+        }
+    }
+
+    fun addSafRoot(treeUri: String, displayName: String) {
+        _uiState.value = _uiState.value.copy(scanning = true, error = null)
+        viewModelScope.launch {
+            runCatching { repository.addSafRoot(treeUri, displayName) }
+                .onSuccess { _uiState.value = _uiState.value.copy(scanning = false) }
+                .onFailure { throwable ->
+                    _uiState.value = _uiState.value.copy(
+                        scanning = false,
+                        error = throwable.message ?: "读取该目录失败",
+                    )
+                }
+        }
+    }
+
+    fun removeSafRoot(treeUri: String) {
+        viewModelScope.launch {
+            runCatching { repository.removeSafRoot(treeUri) }
+                .onFailure { throwable ->
+                    _uiState.value = _uiState.value.copy(error = throwable.message ?: "移除目录失败")
                 }
         }
     }

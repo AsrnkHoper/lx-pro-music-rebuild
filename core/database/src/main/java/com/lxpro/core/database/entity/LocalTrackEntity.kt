@@ -1,23 +1,25 @@
 package com.lxpro.core.database.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
+import androidx.room.PrimaryKey
 
 /**
  * 本地曲库索引（M2 双模式支柱之一）。
  *
  * ⚠️ 这是**派生数据**：丢了只要重新扫描即可，但它仍存在 Room 里，走显式迁移不破坏用户数据。
  *
- * 去重键 = `uri`（MediaStore 的 content uri 稳定）；`lastScanBatch` 用于「标记-清除」式增量同步，
- * 避免用 `NOT IN (几千个 uri)` 触碰 SQLite 变量上限。
+ * 去重键 = `uri`（MediaStore 的 content uri / SAF 的 document uri 各自稳定）；
+ * `lastScanBatch` 用于「标记-清除」式增量同步，避免用 `NOT IN (几千个 uri)` 触碰 SQLite 变量上限。
  */
 @Entity(
     tableName = "local_tracks",
-    indices = [Index("fingerprint"), Index("folder")],
+    indices = [Index("fingerprint"), Index("folder"), Index("sourceKind"), Index("safRootUri")],
 )
 data class LocalTrackEntity(
-    /** MediaStore content uri，同时是主键 */
-    @androidx.room.PrimaryKey val uri: String,
+    /** 文件 uri（MediaStore content uri 或 SAF document uri），同时是主键 */
+    @PrimaryKey val uri: String,
     val title: String,
     val artist: String,
     val album: String?,
@@ -31,4 +33,8 @@ data class LocalTrackEntity(
     val indexedAt: Long,
     /** 本次扫描批次；与当前批次不一致的行说明文件已被删除 */
     val lastScanBatch: Long,
+    /** 来源通道：media_store / saf（见 LocalSourceKind） */
+    @ColumnInfo(defaultValue = "media_store") val sourceKind: String,
+    /** 仅 [sourceKind] = saf 时有值：来自哪个授权目录，用于按目录做增量清除 */
+    val safRootUri: String?,
 )

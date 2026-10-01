@@ -13,6 +13,18 @@ val LOCAL_SOURCE_ID = SourceId("local")
 const val LOCAL_SOURCE_NAME = "本地"
 
 /**
+ * 本地曲目的来源通道。
+ *
+ * 同一首歌可能既是 MediaStore 索引到的、又被用户通过 SAF 授权目录扫到 ——
+ * 两者的 uri 不同（content://media/... vs content://...documents/tree/...），
+ * 因此**清除策略必须按通道隔离**，否则一次 MediaStore 扫描会把 SAF 导入的行误删。
+ */
+object LocalSourceKind {
+    const val MEDIA_STORE = "media_store"
+    const val SAF = "saf"
+}
+
+/**
  * 本地曲目封面的伪 URL 前缀。
  *
  * 本地封面不是可下载的 URL：Android 10+ 已对三方应用关闭 `audio/albumart` content URI，
