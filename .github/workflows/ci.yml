@@ -24,8 +24,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # ⚠️ 不用 android-actions/setup-android@v3：它执行的 `sdkmanager tools` 在新版
+      #    cmdline-tools(16.0) 里已不存在，会直接失败。改为手动接受许可 + 补齐 platform。
+      - name: Android SDK licenses and platform
+        run: |
+          SDKMANAGER="$(find "${ANDROID_SDK_ROOT}/cmdline-tools" -name sdkmanager -type f | sort | tail -1)"
+          echo "sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" > /dev/null 2>&1 || true
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
