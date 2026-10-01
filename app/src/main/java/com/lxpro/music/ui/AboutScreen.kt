@@ -18,6 +18,7 @@ import com.lxpro.core.designsystem.component.LXSectionHeader
 import com.lxpro.core.designsystem.theme.LXDimens
 import com.lxpro.core.designsystem.theme.LXTheme
 import com.lxpro.core.designsystem.theme.LXType
+import com.lxpro.core.designsystem.theme.lxSafeDrawingPadding
 import com.lxpro.music.BuildConfig
 
 /**
@@ -36,6 +37,7 @@ fun AboutScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .lxSafeDrawingPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = scalars.sidePadding, vertical = scalars.sectionGap),
     ) {

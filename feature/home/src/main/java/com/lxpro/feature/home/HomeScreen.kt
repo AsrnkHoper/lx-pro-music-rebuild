@@ -26,6 +26,7 @@ import com.lxpro.core.designsystem.theme.LXDimens
 import com.lxpro.core.designsystem.theme.LXPalette
 import com.lxpro.core.designsystem.theme.LXTheme
 import com.lxpro.core.designsystem.theme.LXType
+import com.lxpro.core.designsystem.theme.lxSafeDrawingPadding
 
 /**
  * M0 的验证落地页：证明「工程骨架 + 七套配色 + 氛围层 + DI + DataStore」这条链路可用。
@@ -47,6 +48,7 @@ fun HomeScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .lxSafeDrawingPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = scalars.sidePadding, vertical = scalars.sectionGap),
     ) {
