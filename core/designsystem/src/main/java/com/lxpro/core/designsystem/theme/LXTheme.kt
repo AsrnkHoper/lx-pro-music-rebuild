@@ -4,9 +4,11 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
@@ -74,6 +76,12 @@ fun LXTheme(palette: LXPalette, content: @Composable () -> Unit) {
         LocalLXColors provides animatedColors,
         LocalLXScalars provides animatedScalars,
         LocalLXPalette provides palette,
-        content = content,
-    )
+    ) {
+        // M3 组件必须吃到同一套颜色，否则会出现"字看不清"（见 LXMaterialBridge 注释）
+        MaterialTheme(
+            colorScheme = remember(animatedColors) { animatedColors.toMaterialColorScheme() },
+            typography = LxMaterialTypography,
+            content = content,
+        )
+    }
 }

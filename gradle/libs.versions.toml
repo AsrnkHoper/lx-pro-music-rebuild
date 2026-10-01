@@ -22,7 +22,8 @@ okhttp = "5.4.0"
 serialization = "1.11.0"
 coroutines = "1.11.0"
 # ── 图片
-coil = "3.6.3"
+# ⚠️ coil 3.6.x 依赖 compose 1.12.0（要求 compileSdk 37，尚未发布）→ 锁 3.5.0（minCompileSdk 36）
+coil = "3.5.0"
 # ── 测试
 junit = "4.13.2"
 
