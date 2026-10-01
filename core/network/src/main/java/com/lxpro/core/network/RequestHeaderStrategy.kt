@@ -1,5 +1,6 @@
 package com.lxpro.core.network
 
+import com.lxpro.core.model.Song
 import com.lxpro.core.model.SourceId
 
 /**
@@ -10,6 +11,13 @@ import com.lxpro.core.model.SourceId
  */
 interface RequestHeaderStrategy {
     fun headersFor(source: SourceId): Map<String, String>
+
+    /**
+     * 按**具体歌曲**取请求头。
+     * B 站 CDN 校验的是**该视频页**的 Referer（不是首页），所以必须按歌曲算。
+     */
+    fun headersFor(song: Song): Map<String, String>
+
     fun userAgentFor(source: SourceId): String
 }
 
@@ -31,6 +39,18 @@ object DefaultHeaderStrategy : RequestHeaderStrategy {
         )
 
         else -> emptyMap()
+    }
+
+    override fun headersFor(song: Song): Map<String, String> = when (song.source.value) {
+        "bi" -> {
+            val bvid = song.raw["bvid"] ?: song.id
+            mapOf(
+                "Referer" to "https://www.bilibili.com/video/$bvid",
+                "Origin" to "https://www.bilibili.com",
+            )
+        }
+
+        else -> headersFor(song.source)
     }
 
     override fun userAgentFor(source: SourceId): String = CHROME_UA

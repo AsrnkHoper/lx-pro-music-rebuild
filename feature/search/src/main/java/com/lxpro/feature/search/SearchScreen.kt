@@ -51,7 +51,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
  */
 @Composable
 fun SearchScreen(
-    onSongClick: (Song) -> Unit,
+    onSongClick: (Song, List<Song>) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
@@ -140,7 +140,8 @@ fun SearchScreen(
                     key = { "${it.source.value}:${it.id}" },
                     contentType = { "song" },
                 ) { song ->
-                    SongRow(song = song, onClick = { onSongClick(song) })
+                    // 播放队列 = 当前搜索结果，点哪首就从哪首开始
+                    SongRow(song = song, onClick = { onSongClick(song, state.results) })
                 }
                 if (state.loadingMore) {
                     item(key = "loading-more", contentType = "footer") {
