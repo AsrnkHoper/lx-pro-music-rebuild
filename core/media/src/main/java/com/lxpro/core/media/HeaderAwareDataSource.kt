@@ -1,8 +1,8 @@
 package com.lxpro.core.media
 
 import android.net.Uri
+import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.ResolvingDataSource
-import androidx.media3.datasource.cache.CacheDataSource
 import kotlinx.serialization.json.Json
 
 /**
@@ -11,6 +11,9 @@ import kotlinx.serialization.json.Json
  * ⚠️⚠️ 关键正确性要求：**不得**用 `OkHttpDataSource.setDefaultRequestProperties()`
  * （全局可变状态，并发预加载/切歌时会串 Referer/UA）。必须用 `DataSpec.withRequestHeaders()`
  * 让 headers 随 spec 走，天然线程安全。
+ *
+ * ⚠️ 上游是**已按 scheme 路由**的工厂（见 PlayerFactory）：
+ * `content://` / `file://` 由 `DefaultDataSource` 处理，不经过缓存，也不会碰到 OkHttp。
  */
 object HeaderAwareDataSource {
 
@@ -22,7 +25,7 @@ object HeaderAwareDataSource {
     fun buildUri(url: String, headers: Map<String, String>): Uri =
         Uri.parse("$url$SPLIT_TAG${json.encodeToString(headers)}")
 
-    fun factory(cacheFactory: CacheDataSource.Factory): ResolvingDataSource.Factory {
+    fun factory(upstreamFactory: DataSource.Factory): ResolvingDataSource.Factory {
         val resolver = ResolvingDataSource.Resolver { spec ->
             val raw = spec.uri.toString()
             if (!raw.contains(SPLIT_TAG)) {
@@ -34,6 +37,6 @@ object HeaderAwareDataSource {
                     .withRequestHeaders(headers)
             }
         }
-        return ResolvingDataSource.Factory(cacheFactory, resolver)
+        return ResolvingDataSource.Factory(upstreamFactory, resolver)
     }
 }

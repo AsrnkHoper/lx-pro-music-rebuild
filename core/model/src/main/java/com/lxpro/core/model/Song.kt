@@ -13,6 +13,15 @@ val LOCAL_SOURCE_ID = SourceId("local")
 const val LOCAL_SOURCE_NAME = "本地"
 
 /**
+ * 本地曲目封面的伪 URL 前缀。
+ *
+ * 本地封面不是可下载的 URL：Android 10+ 已对三方应用关闭 `audio/albumart` content URI，
+ * 必须用 `ContentResolver.loadThumbnail(fileUri)` 取。因此约定 `picUrl` 形如
+ * `localart://<urlencode(fileUri)>`，由 UI 层的 `AsyncArtwork` 识别并走缩略图通道。
+ */
+const val LOCAL_ART_PREFIX = "localart://"
+
+/**
  * 双模式（15 §4）。全局单例、跨页面保持，且首页与搜索页共用同一份状态。
  *
  * ⚠️ 切换模式必须**保留搜索关键词并立即重搜** —— 用户常「在线搜不到 → 切本地看看」。

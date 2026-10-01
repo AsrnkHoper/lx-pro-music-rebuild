@@ -31,7 +31,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
+import com.lxpro.core.designsystem.component.AsyncArtwork
 import com.lxpro.core.designsystem.component.LxIcons
 import com.lxpro.core.designsystem.theme.LXTheme
 import com.lxpro.core.designsystem.theme.LXType
@@ -84,7 +84,7 @@ fun PlayerScreen(
                 .background(colors.inset),
             contentAlignment = Alignment.Center,
         ) {
-            AsyncImage(
+            AsyncArtwork(
                 model = state.current?.picUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,

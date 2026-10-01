@@ -6,6 +6,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.FileDataSource
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.cache.CacheDataSink
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
@@ -41,11 +42,19 @@ object PlayerFactory {
             .setCacheReadDataSourceFactory(FileDataSource.Factory())
             .setCacheWriteDataSinkFactory(CacheDataSink.Factory().setCache(cache))
 
+        // ⚠️⚠️ 关键：必须把「带缓存的网络源」作为 DefaultDataSource 的 **base**，
+        //    而不是反过来。DefaultDataSource 按 scheme 分派：
+        //      · content:// → ContentDataSource（本地曲目，**不经过缓存**，否则播一首就把整首歌复制进缓存目录）
+        //      · file://    → FileDataSource（同样不吃缓存）
+        //      · http(s):// → 我们给的 base（缓存 + OkHttp，B 站取流仍走这里）
+        //    M2-A 的「本地曲目无法播放」就是这个层级放反了：OkHttpDataSource 不认 content scheme。
+        val routedFactory = DefaultDataSource.Factory(context, cacheFactory)
+
         return ExoPlayer.Builder(context)
             .setLooper(Looper.getMainLooper())
             .setMediaSourceFactory(
                 DefaultMediaSourceFactory(context)
-                    .setDataSourceFactory(HeaderAwareDataSource.factory(cacheFactory)),
+                    .setDataSourceFactory(HeaderAwareDataSource.factory(routedFactory)),
             )
             .setLoadControl(
                 DefaultLoadControl.Builder().setBufferDurationsMs(

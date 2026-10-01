@@ -36,7 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
+import com.lxpro.core.designsystem.component.AsyncArtwork
 import com.lxpro.core.designsystem.component.LXPillChip
 import com.lxpro.core.designsystem.theme.LXTheme
 import com.lxpro.core.designsystem.theme.LXType
@@ -207,15 +207,14 @@ private fun SongRow(item: SearchResultItem, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // 封面：B 站图床不校验 Referer，直接用 Coil 默认网络层即可；本地曲目暂无封面
-        AsyncImage(
+        // 封面：在线走 Coil，本地走缩略图通道（AsyncArtwork 内部区分）
+        AsyncArtwork(
             model = song.picUrl,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(44.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(colors.inset),
+                .clip(RoundedCornerShape(8.dp)),
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(

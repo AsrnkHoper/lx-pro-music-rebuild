@@ -22,7 +22,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import com.lxpro.core.designsystem.theme.LXDimens
 import com.lxpro.core.designsystem.theme.LXTheme
 import com.lxpro.core.designsystem.theme.LXType
@@ -59,14 +58,13 @@ fun LXMiniPlayerBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box {
-            AsyncImage(
+            AsyncArtwork(
                 model = coverUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(LXDimens.coverList)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(colors.inset),
+                    .clip(RoundedCornerShape(8.dp)),
             )
             // 白噪音角标位（19px，M4 落地；现在只在开启时占位显示）
             if (noiseActive) {

@@ -1,9 +1,11 @@
 package com.lxpro.core.library
 
 import com.lxpro.core.common.TextNormalizer
+import android.net.Uri
 import com.lxpro.core.database.dao.LocalTrackDao
 import com.lxpro.core.database.entity.LocalTrackEntity
 import com.lxpro.core.model.Song
+import com.lxpro.core.model.LOCAL_ART_PREFIX
 import com.lxpro.core.model.LOCAL_SOURCE_ID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,5 +78,7 @@ fun LocalTrackEntity.toSong(): Song = Song(
     singer = artist,
     albumName = album,
     interval = durationMs / 1000,
+    // 封面走伪 URL：真实取图由 UI 层用 loadThumbnail 完成（见 LOCAL_ART_PREFIX 注释）
+    picUrl = LOCAL_ART_PREFIX + Uri.encode(uri),
     raw = mapOf("uri" to uri),
 )
