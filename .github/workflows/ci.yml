@@ -33,6 +33,14 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
           "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" > /dev/null 2>&1 || true
 
+      # 临时诊断：确认 runner 侧各仓库对 KSP 插件标记构件的真实返回码
+      - name: Diagnose KSP plugin marker
+        run: |
+          for repo in "https://maven.aliyun.com/repository/gradle-plugin" "https://maven.aliyun.com/repository/google" "https://maven.aliyun.com/repository/public" "https://dl.google.com/dl/android/maven2" "https://repo1.maven.org/maven2" "https://plugins.gradle.org/m2"; do
+            code=$(curl -sL -o /dev/null -w '%{http_code}' -m 20 "$repo/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.3.12/com.google.devtools.ksp.gradle.plugin-2.3.12.pom")
+            echo "$repo => $code"
+          done
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
