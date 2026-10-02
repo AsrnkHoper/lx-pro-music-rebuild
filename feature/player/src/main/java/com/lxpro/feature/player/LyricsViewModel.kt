@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lxpro.core.common.LyricLine
 import com.lxpro.core.common.LyricParser
+import com.lxpro.core.library.LocalMusicRepository
 import com.lxpro.core.media.PlayerController
 import com.lxpro.core.model.Song
 import com.lxpro.core.model.LOCAL_SOURCE_ID
@@ -37,6 +38,7 @@ data class LyricsUiState(
 class LyricsViewModel @Inject constructor(
     private val playerController: PlayerController,
     private val sourceRegistry: SourceRegistry,
+    private val localMusicRepository: LocalMusicRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LyricsUiState())
@@ -56,13 +58,24 @@ class LyricsViewModel @Inject constructor(
             _uiState.value = LyricsUiState()
             return
         }
-        // 本地文件目前没有歌词通道（内嵌歌词极少见），如实告知而不是空着
+
+        _uiState.value = LyricsUiState(loading = true)
+
+        // 本地曲目：同目录同名 .lrc 优先，其次读音频内嵌歌词（ID3v2 USLT/SYLT、FLAC Vorbis）
         if (song.source == LOCAL_SOURCE_ID) {
-            _uiState.value = LyricsUiState(message = "本地曲目暂无歌词")
+            val raw = runCatching { localMusicRepository.lyricsForTrackUri(song.id) }.getOrNull()
+            val lines = LyricParser.parse(raw)
+            _uiState.value = LyricsUiState(
+                lines = lines,
+                message = if (lines.isEmpty()) {
+                    "这首没有歌词：同目录下没有同名 .lrc，音频里也没有内嵌歌词"
+                } else {
+                    null
+                },
+            )
             return
         }
 
-        _uiState.value = LyricsUiState(loading = true)
         val source = sourceRegistry.byId(song.source)
         if (source == null) {
             _uiState.value = LyricsUiState(message = "音源不可用，取不到歌词")

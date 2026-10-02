@@ -13,6 +13,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:media"))
     implementation(project(":core:designsystem"))
+    implementation(project(":core:library"))
     implementation(project(":source:api"))
 
     implementation(platform(libs.androidx.compose.bom))

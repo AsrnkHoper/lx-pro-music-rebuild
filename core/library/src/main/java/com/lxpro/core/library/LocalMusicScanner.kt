@@ -19,16 +19,31 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** 媒体库扫描结果：除曲目外还带出**文件路径集合**，供 SAF 扫描排除重复。 */
+/**
+ * 媒体库扫描结果。
+ *
+ * @param pathByUri uri → 真实文件路径（供 SAF 扫描排除重复、以及把 SAF 发现的同名 .lrc 挂到媒体库行上）
+ */
 data class MediaStoreScan(
     val tracks: List<LocalTrackEntity>,
-    val paths: Set<String>,
-)
+    val pathByUri: Map<String, String>,
+) {
+    val paths: Set<String> = pathByUri.values.toSet()
+}
 
-/** SAF 目录扫描结果。`skippedAsDuplicate` = 因媒体库已收录而跳过的文件数（给用户一个诚实交代）。 */
+/**
+ * SAF 目录扫描结果。
+ *
+ * @param skippedAsDuplicate 因媒体库已收录而跳过的文件数（给用户一个诚实交代）
+ * @param pathToLrc 在授权目录里发现的**同名 .lrc**：文件真实路径 → lrc 的 document uri。
+ *   ⚠️ 这是 .lrc 能生效的关键：Android 11+ 的分区存储不允许按路径读共享存储里的
+ *   **非媒体文件**（.lrc 不在 `READ_MEDIA_AUDIO` 范围内），只能借 SAF 授权拿到可读 uri。
+ *   媒体库那行要用它来覆盖自己（见 LocalMusicRepository.persistMediaStore）。
+ */
 data class SafScan(
     val tracks: List<LocalTrackEntity>,
     val skippedAsDuplicate: Int,
+    val pathToLrc: Map<String, String>,
 )
 
 /**
@@ -65,55 +80,78 @@ class LocalMusicScanner @Inject constructor(
             ?: error("授权目录不可读（可能权限已失效）：$treeUri")
 
         val result = LinkedHashMap<String, LocalTrackEntity>()
+        val pathToLrc = mutableMapOf<String, String>()
         var skipped = 0
-        // 用显式队列而不是递归：深层目录树不至于爆栈
-        val queue = ArrayDeque<Pair<DocumentFile, String?>>()
-        tree.listFiles().forEach { queue.addLast(it to tree.name) }
 
-        while (queue.isNotEmpty()) {
-            val (doc, folderName) = queue.removeFirst()
-            if (doc.isDirectory) {
-                doc.listFiles().forEach { queue.addLast(it to (doc.name ?: folderName)) }
-                continue
+        // 按**目录**出队（而不是文件）——只有拿到同一目录的孩子列表，才能找到同名 .lrc
+        val directories = ArrayDeque<Pair<DocumentFile, String?>>()
+        directories.addLast(tree to tree.name)
+
+        while (directories.isNotEmpty()) {
+            val (directory, folderName) = directories.removeFirst()
+            val children = directory.listFiles()
+            // 同一目录下的 .lrc：文件名（去扩展名、小写）→ lrc 的 uri
+            val lrcByBaseName = children
+                .filter { it.isFile && it.name?.endsWith(".lrc", ignoreCase = true) == true }
+                .associate { it.name.orEmpty().substringBeforeLast('.').lowercase() to it.uri.toString() }
+
+            children.forEach { child ->
+                if (child.isDirectory) {
+                    directories.addLast(child to (child.name ?: folderName))
+                    return@forEach
+                }
+                val name = child.name ?: return@forEach
+                if (!isAudio(name, child.type)) return@forEach
+
+                val baseName = name.substringBeforeLast('.', name).lowercase()
+                val lrcUri = lrcByBaseName[baseName]
+                val resolvedPath = documentUriToPath(child.uri)
+
+                // 媒体库里的同一份文件也要能拿到这个 lrc（它才是最终展示的那一行）
+                if (resolvedPath != null && lrcUri != null) {
+                    pathToLrc[resolvedPath] = lrcUri
+                }
+
+                // 媒体库已经有了同一份文件 → 跳过，避免同一首歌在列表里出现两次
+                if (resolvedPath != null && resolvedPath in excludePaths) {
+                    skipped++
+                    return@forEach
+                }
+
+                val uri = child.uri.toString()
+                val meta = readMetadata(child.uri)
+                val durationMs = meta?.durationMs ?: 0L
+                // 只在「读到了时长且明显过短」时跳过；读不到时长的不敢滤，宁可留着
+                if (durationMs in 1 until MIN_DURATION_MS) return@forEach
+
+                val title = meta?.title?.takeIf { it.isNotBlank() }
+                    ?: name.substringBeforeLast('.', name)
+                val artist = meta?.artist?.takeIf { it.isNotBlank() } ?: UNKNOWN_ARTIST
+
+                result[uri] = LocalTrackEntity(
+                    uri = uri,
+                    title = title,
+                    artist = artist,
+                    album = meta?.album?.takeIf { it.isNotBlank() },
+                    durationMs = durationMs,
+                    sizeBytes = child.length(),
+                    mimeType = child.type,
+                    folder = folderName,
+                    dateAddedSec = child.lastModified() / 1000,
+                    fingerprint = SongFingerprint.of(title, artist),
+                    indexedAt = System.currentTimeMillis(),
+                    lastScanBatch = 0L,
+                    sourceKind = LocalSourceKind.SAF,
+                    safRootUri = treeUri,
+                    lrcUri = lrcUri,
+                )
             }
-            val name = doc.name ?: continue
-            if (!isAudio(name, doc.type)) continue
-
-            // 媒体库已经有了同一份文件 → 跳过，避免同一首歌在列表里出现两次
-            val resolvedPath = documentUriToPath(doc.uri)
-            if (resolvedPath != null && resolvedPath in excludePaths) {
-                skipped++
-                continue
-            }
-
-            val uri = doc.uri.toString()
-            val meta = readMetadata(doc.uri)
-            val durationMs = meta?.durationMs ?: 0L
-            // 只在「读到了时长且明显过短」时跳过；读不到时长的不敢滤，宁可留着
-            if (durationMs in 1 until MIN_DURATION_MS) continue
-
-            val title = meta?.title?.takeIf { it.isNotBlank() }
-                ?: name.substringBeforeLast('.', name)
-            val artist = meta?.artist?.takeIf { it.isNotBlank() } ?: UNKNOWN_ARTIST
-
-            result[uri] = LocalTrackEntity(
-                uri = uri,
-                title = title,
-                artist = artist,
-                album = meta?.album?.takeIf { it.isNotBlank() },
-                durationMs = durationMs,
-                sizeBytes = doc.length(),
-                mimeType = doc.type,
-                folder = folderName,
-                dateAddedSec = doc.lastModified() / 1000,
-                fingerprint = SongFingerprint.of(title, artist),
-                indexedAt = System.currentTimeMillis(),
-                lastScanBatch = 0L,
-                sourceKind = LocalSourceKind.SAF,
-                safRootUri = treeUri,
-            )
         }
-        SafScan(tracks = result.values.toList(), skippedAsDuplicate = skipped)
+        SafScan(
+            tracks = result.values.toList(),
+            skippedAsDuplicate = skipped,
+            pathToLrc = pathToLrc,
+        )
     }
 
     private fun queryMediaStore(): MediaStoreScan {
@@ -147,7 +185,7 @@ class LocalMusicScanner @Inject constructor(
 
         // key = uri，顺手在扫描阶段去重（多卷/重复挂载时 MediaStore 会给出重复行）
         val deduped = LinkedHashMap<String, LocalTrackEntity>()
-        val paths = mutableSetOf<String>()
+        val pathByUri = mutableMapOf<String, String>()
 
         context.contentResolver.query(collection, projection, selection, selectionArgs, sortOrder)
             ?.use { cursor ->
@@ -165,7 +203,7 @@ class LocalMusicScanner @Inject constructor(
                     val id = cursor.getLong(idIndex)
                     val uri = ContentUris.withAppendedId(collection, id).toString()
                     val path = if (dataIndex >= 0) cursor.getString(dataIndex) else null
-                    if (!path.isNullOrBlank()) paths += path
+                    if (!path.isNullOrBlank()) pathByUri[uri] = path
                     val title = cursor.getString(titleIndex)?.takeIf { it.isNotBlank() }
                         ?: path?.let { File(it).nameWithoutExtension }
                         ?: continue
@@ -193,11 +231,35 @@ class LocalMusicScanner @Inject constructor(
                         lastScanBatch = 0L,
                         sourceKind = LocalSourceKind.MEDIA_STORE,
                         safRootUri = null,
+                        lrcUri = siblingLrcUri(path),
                     )
                 }
             }
 
-        return MediaStoreScan(tracks = deduped.values.toList(), paths = paths)
+        return MediaStoreScan(tracks = deduped.values.toList(), pathByUri = pathByUri)
+    }
+
+    /**
+     * 尽力找同名 .lrc（`file://` uri 形式）。
+     *
+     * ⚠️ Android 11+ 的分区存储**不允许按路径读共享存储里的非媒体文件**，`.lrc` 不在
+     * `READ_MEDIA_AUDIO` 覆盖范围内，所以这里多数情况下会失败并返回 null ——
+     * 这是**预期**，不是 bug：能真正拿到 .lrc 的路径是 SAF 授权目录（见 [SafScan.pathToLrc]）。
+     * 这条尽力而为的检查在旧系统（≤10）与部分机型上仍有效。
+     */
+    private fun siblingLrcUri(filePath: String?): String? {
+        if (filePath.isNullOrBlank()) return null
+        val file = File(filePath)
+        val parent = file.parentFile ?: return null
+        val baseName = file.nameWithoutExtension
+
+        for (candidateName in listOf("$baseName.lrc", "$baseName.LRC")) {
+            val candidate = File(parent, candidateName)
+            if (candidate.isFile && candidate.canRead()) {
+                return Uri.fromFile(candidate).toString()
+            }
+        }
+        return null
     }
 
     /**

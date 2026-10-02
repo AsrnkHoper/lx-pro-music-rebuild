@@ -37,4 +37,11 @@ data class LocalTrackEntity(
     @ColumnInfo(defaultValue = "media_store") val sourceKind: String,
     /** 仅 [sourceKind] = saf 时有值：来自哪个授权目录，用于按目录做增量清除 */
     val safRootUri: String?,
+    /**
+     * 同名 `.lrc` 歌词文件的 uri（`content://` document uri 或 `file://`），没有则为 null。
+     *
+     * 在**扫描期**就解析好：SAF 目录下顺带发现同名 .lrc；媒体库行尽力而为地按路径找。
+     * 不在播放时再找，是因为 SAF 侧要重走目录树、成本更高。
+     */
+    val lrcUri: String? = null,
 )

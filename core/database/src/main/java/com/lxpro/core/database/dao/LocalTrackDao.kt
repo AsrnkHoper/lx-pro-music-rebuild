@@ -12,6 +12,9 @@ interface LocalTrackDao {
     @Query("SELECT * FROM local_tracks ORDER BY dateAddedSec DESC")
     fun observeAll(): Flow<List<LocalTrackEntity>>
 
+    @Query("SELECT * FROM local_tracks WHERE uri = :uri LIMIT 1")
+    suspend fun findByUri(uri: String): LocalTrackEntity?
+
     @Query("SELECT * FROM local_tracks")
     suspend fun all(): List<LocalTrackEntity>
 

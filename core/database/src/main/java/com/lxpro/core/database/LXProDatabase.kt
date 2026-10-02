@@ -19,10 +19,11 @@ import com.lxpro.core.database.entity.SongEntity
  *
  * - v2：新增 `local_tracks`（M2 本地音乐索引）
  * - v3：`local_tracks` 增加来源通道（media_store / saf）+ `saf_roots`（M2 SAF 目录授权）
+ * - v4：`local_tracks` 增加 `lrcUri`（M2 本地歌词：同名 .lrc / 内嵌）
  */
 @Database(
     entities = [SongEntity::class, LocalTrackEntity::class, SafRootEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class LXProDatabase : RoomDatabase() {
@@ -95,5 +96,17 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
                 "`addedAt` INTEGER NOT NULL, " +
                 "PRIMARY KEY(`treeUri`))",
         )
+    }
+}
+
+/**
+ * v3 → v4：本地曲目的同名 `.lrc` 歌词 uri。
+ *
+ * ⚠️ 同样必须与生成的 `schemas/.../4.json` 逐字一致。存量行为 null，
+ * 用户重扫一次即可把已有 .lrc 关联上。
+ */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `local_tracks` ADD COLUMN `lrcUri` TEXT")
     }
 }

@@ -29,7 +29,7 @@ object LyricParser {
     /** `[mm:ss]` / `[mm:ss.xx]` / `[mm:ss:xx]`；元信息标签的第一段不是纯数字，天然不匹配 */
     private val TIMESTAMP = Regex("""\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?]""")
 
-    fun parse(lyric: String, translation: String? = null): List<LyricLine> {
+    fun parse(lyric: String?, translation: String? = null): List<LyricLine> {
         val main = parseSingle(lyric)
         if (main.isEmpty()) return emptyList()
 

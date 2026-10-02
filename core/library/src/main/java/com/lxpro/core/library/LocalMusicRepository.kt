@@ -29,12 +29,13 @@ data class ScanOutcome(
     val found: Int get() = mediaStoreFound + safFound
 }
 
-/** 本地曲库（索引 + 查询 + 扫描同步）。 */
+/** 本地曲库（索引 + 查询 + 扫描同步 + 歌词）。 */
 @Singleton
 class LocalMusicRepository @Inject constructor(
     private val dao: LocalTrackDao,
     private val safRootDao: SafRootDao,
     private val scanner: LocalMusicScanner,
+    private val lyricsProvider: LocalLyricsProvider,
 ) {
 
     /**
@@ -68,14 +69,28 @@ class LocalMusicRepository @Inject constructor(
             .sortedBy { it.title.lowercase() }
     }
 
+    /**
+     * 本地曲目的歌词原文（同名 .lrc 优先，其次音频内嵌）。
+     *
+     * @param uri 本地曲目的 uri（即 local_tracks 主键，也是 [Song.id]）
+     */
+    suspend fun lyricsForTrackUri(uri: String): String? =
+        dao.findByUri(uri)?.let { lyricsProvider.lyricsFor(it) }
+
     /** 用户新增授权目录：先落库再立刻扫一遍，让他马上看到东西 */
     suspend fun addSafRoot(treeUri: String, displayName: String) {
         safRootDao.insert(
             SafRootEntity(treeUri = treeUri, displayName = displayName, addedAt = System.currentTimeMillis()),
         )
-        // 需要媒体库已索引的路径集合来做排除，因此这里先跑一次媒体库查询（只取路径）
         val mediaScan = runCatching { scanner.scanMediaStore() }.getOrNull()
-        scanSafChannel(treeUri, mediaScan?.paths.orEmpty())
+        val result = runCatching {
+            scanner.scanSafRoot(treeUri, mediaScan?.paths.orEmpty())
+        }.getOrNull()
+
+        if (result != null) {
+            persistMediaStore(mediaScan, result.pathToLrc)
+            persistSaf(treeUri, result.tracks)
+        }
         refreshCache()
     }
 
@@ -89,21 +104,32 @@ class LocalMusicRepository @Inject constructor(
     /** 全量扫描：媒体库 + 所有已授权目录。 */
     suspend fun scan(): ScanOutcome {
         val scannedAt = System.currentTimeMillis()
-
         val mediaScan = runCatching { scanner.scanMediaStore() }.getOrNull()
-        val mediaStoreFound = persistMediaStore(mediaScan)
 
-        var safFound = 0
-        var skipped = 0
+        val safScans = LinkedHashMap<String, SafScan>()
+        val pathToLrc = HashMap<String, String>()
         var failedRoots = 0
         safRootDao.all().forEach { root ->
-            val result = scanSafChannel(root.treeUri, mediaScan?.paths.orEmpty())
+            val result = runCatching {
+                scanner.scanSafRoot(root.treeUri, mediaScan?.paths.orEmpty())
+            }.getOrNull()
             if (result == null) {
                 failedRoots++
             } else {
-                safFound += result.tracks.size
-                skipped += result.skippedAsDuplicate
+                safScans[root.treeUri] = result
+                pathToLrc.putAll(result.pathToLrc)
             }
+        }
+
+        // ⚠️ 顺序要紧：媒体库那一行要等 SAF 扫完，才能把授权目录里发现的同名 .lrc 挂上去
+        val mediaStoreFound = persistMediaStore(mediaScan, pathToLrc)
+
+        var safFound = 0
+        var skipped = 0
+        safScans.forEach { (treeUri, result) ->
+            persistSaf(treeUri, result.tracks)
+            safFound += result.tracks.size
+            skipped += result.skippedAsDuplicate
         }
 
         refreshCache()
@@ -117,29 +143,31 @@ class LocalMusicRepository @Inject constructor(
     }
 
     /** @return 入库条数；媒体库扫描失败（如未授权）时返回 0 且**不清除**已有索引 */
-    private suspend fun persistMediaStore(mediaScan: MediaStoreScan?): Int {
+    private suspend fun persistMediaStore(
+        mediaScan: MediaStoreScan?,
+        pathToLrc: Map<String, String>,
+    ): Int {
         if (mediaScan == null) return 0
         val batch = System.currentTimeMillis()
+
         if (mediaScan.tracks.isNotEmpty()) {
-            dao.upsertAll(mediaScan.tracks.map { it.copy(lastScanBatch = batch) })
+            val rows = mediaScan.tracks.map { track ->
+                val lrcFromSaf = mediaScan.pathByUri[track.uri]?.let { pathToLrc[it] }
+                // SAF 找到的 lrc 是**可读的 content uri**，优先于自己尽力而为的 file:// 结果
+                track.copy(lastScanBatch = batch, lrcUri = lrcFromSaf ?: track.lrcUri)
+            }
+            dao.upsertAll(rows)
         }
         dao.deleteStaleByKind(LocalSourceKind.MEDIA_STORE, batch)
         return mediaScan.tracks.size
     }
 
-    /** @return 扫到的条数与被跳过（媒体库已收录）的条数；null 表示该目录扫描失败（此时不做清除） */
-    private suspend fun scanSafChannel(
-        treeUri: String,
-        excludePaths: Set<String>,
-    ): SafScan? {
+    private suspend fun persistSaf(treeUri: String, tracks: List<LocalTrackEntity>) {
         val batch = System.currentTimeMillis()
-        val scanned = runCatching { scanner.scanSafRoot(treeUri, excludePaths) }.getOrNull()
-            ?: return null
-        if (scanned.tracks.isNotEmpty()) {
-            dao.upsertAll(scanned.tracks.map { it.copy(lastScanBatch = batch) })
+        if (tracks.isNotEmpty()) {
+            dao.upsertAll(tracks.map { it.copy(lastScanBatch = batch) })
         }
         dao.deleteStaleBySafRoot(treeUri, batch)
-        return scanned
     }
 }
 
