@@ -5,9 +5,12 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.lxpro.core.database.dao.LocalTrackDao
+import com.lxpro.core.database.dao.PlaylistDao
 import com.lxpro.core.database.dao.SafRootDao
 import com.lxpro.core.database.dao.SongDao
 import com.lxpro.core.database.entity.LocalTrackEntity
+import com.lxpro.core.database.entity.PlaylistEntity
+import com.lxpro.core.database.entity.PlaylistItemEntity
 import com.lxpro.core.database.entity.SafRootEntity
 import com.lxpro.core.database.entity.SongEntity
 
@@ -20,10 +23,17 @@ import com.lxpro.core.database.entity.SongEntity
  * - v2：新增 `local_tracks`（M2 本地音乐索引）
  * - v3：`local_tracks` 增加来源通道（media_store / saf）+ `saf_roots`（M2 SAF 目录授权）
  * - v4：`local_tracks` 增加 `lrcUri`（M2 本地歌词：同名 .lrc / 内嵌）
+ * - v5：新增 `playlists` + `playlist_items`（M3 歌单与收藏）
  */
 @Database(
-    entities = [SongEntity::class, LocalTrackEntity::class, SafRootEntity::class],
-    version = 4,
+    entities = [
+        SongEntity::class,
+        LocalTrackEntity::class,
+        SafRootEntity::class,
+        PlaylistEntity::class,
+        PlaylistItemEntity::class,
+    ],
+    version = 5,
     exportSchema = true,
 )
 abstract class LXProDatabase : RoomDatabase() {
@@ -32,6 +42,8 @@ abstract class LXProDatabase : RoomDatabase() {
     abstract fun localTrackDao(): LocalTrackDao
 
     abstract fun safRootDao(): SafRootDao
+
+    abstract fun playlistDao(): PlaylistDao
 }
 
 /**
@@ -108,5 +120,48 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
 val MIGRATION_3_4 = object : Migration(3, 4) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `local_tracks` ADD COLUMN `lrcUri` TEXT")
+    }
+}
+
+/**
+ * v4 → v5：歌单与歌单条目。
+ *
+ * ⚠️ 同样必须与生成的 `schemas/.../5.json` 逐字一致。
+ * 收藏不做成单独的表：它是 `playlists` 里 id 固定为 `liked` 的系统行（02 §6.3）。
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `playlists` (" +
+                "`id` TEXT NOT NULL, " +
+                "`name` TEXT NOT NULL, " +
+                "`isSystem` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "`updatedAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`))",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `playlist_items` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`playlistId` TEXT NOT NULL, " +
+                "`songId` TEXT NOT NULL, " +
+                "`source` TEXT NOT NULL, " +
+                "`songJson` TEXT NOT NULL, " +
+                "`songName` TEXT NOT NULL, " +
+                "`singer` TEXT NOT NULL, " +
+                "`coverUrl` TEXT, " +
+                "`position` INTEGER NOT NULL, " +
+                "`addedAt` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`playlistId`) REFERENCES `playlists`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE CASCADE)",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_playlist_items_playlistId` " +
+                "ON `playlist_items` (`playlistId`)",
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_playlist_items_playlistId_songId_source` " +
+                "ON `playlist_items` (`playlistId`, `songId`, `source`)",
+        )
     }
 }

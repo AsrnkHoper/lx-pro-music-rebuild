@@ -49,6 +49,7 @@ include(":core:database")
 include(":core:network")
 include(":core:media")
 include(":core:library")
+include(":core:playlist")
 
 // 音源体系
 include(":source:api")
@@ -59,3 +60,4 @@ include(":feature:home")
 include(":feature:search")
 include(":feature:player")
 include(":feature:library")
+include(":feature:playlist")

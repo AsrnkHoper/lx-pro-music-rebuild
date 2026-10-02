@@ -6,7 +6,9 @@ import com.lxpro.core.database.LXProDatabase
 import com.lxpro.core.database.MIGRATION_1_2
 import com.lxpro.core.database.MIGRATION_2_3
 import com.lxpro.core.database.MIGRATION_3_4
+import com.lxpro.core.database.MIGRATION_4_5
 import com.lxpro.core.database.dao.LocalTrackDao
+import com.lxpro.core.database.dao.PlaylistDao
 import com.lxpro.core.database.dao.SafRootDao
 import com.lxpro.core.database.dao.SongDao
 import dagger.Module
@@ -25,7 +27,7 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): LXProDatabase =
         Room.databaseBuilder(context, LXProDatabase::class.java, "lxpro.db")
             // ⚠️ 显式迁移，绝不 fallbackToDestructiveMigration（03 §6.3）
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .build()
 
     @Provides
@@ -36,4 +38,7 @@ object DatabaseModule {
 
     @Provides
     fun provideSafRootDao(database: LXProDatabase): SafRootDao = database.safRootDao()
+
+    @Provides
+    fun providePlaylistDao(database: LXProDatabase): PlaylistDao = database.playlistDao()
 }
