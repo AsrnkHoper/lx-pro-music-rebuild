@@ -23,6 +23,8 @@ data class ScanOutcome(
     val mediaStoreFound: Int,
     val safFound: Int,
     val skippedAsDuplicate: Int,
+    val droppedAsTooShort: Int,
+    val droppedAsNonMusic: Int,
     val failedRoots: Int,
     val scannedAt: Long,
 ) {
@@ -126,10 +128,13 @@ class LocalMusicRepository @Inject constructor(
 
         var safFound = 0
         var skipped = 0
+        var droppedShort = mediaScan?.droppedAsTooShort ?: 0
+        var droppedNonMusic = mediaScan?.droppedAsNonMusic ?: 0
         safScans.forEach { (treeUri, result) ->
             persistSaf(treeUri, result.tracks)
             safFound += result.tracks.size
             skipped += result.skippedAsDuplicate
+            droppedShort += result.droppedAsTooShort
         }
 
         refreshCache()
@@ -137,6 +142,8 @@ class LocalMusicRepository @Inject constructor(
             mediaStoreFound = mediaStoreFound,
             safFound = safFound,
             skippedAsDuplicate = skipped,
+            droppedAsTooShort = droppedShort,
+            droppedAsNonMusic = droppedNonMusic,
             failedRoots = failedRoots,
             scannedAt = scannedAt,
         )

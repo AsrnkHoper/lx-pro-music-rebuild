@@ -121,20 +121,31 @@ fun LocalLibraryScreen(
                     text = state.lastOutcome?.let { outcome ->
                         val base = "上次扫描：媒体库 ${outcome.mediaStoreFound} 首" +
                             " · 授权目录 ${outcome.safFound} 首"
-                        val skipped = if (outcome.skippedAsDuplicate > 0) {
-                            "（已跳过 ${outcome.skippedAsDuplicate} 首媒体库已收录的重复）"
-                        } else {
-                            ""
+                        // 「为什么不全」要给得出解释，而不是让用户自己猜
+                        val notes = buildList {
+                            if (outcome.skippedAsDuplicate > 0) {
+                                add("跳过 ${outcome.skippedAsDuplicate} 首与媒体库重复的")
+                            }
+                            if (outcome.droppedAsTooShort > 0) {
+                                add("跳过 ${outcome.droppedAsTooShort} 首短于 10 秒的")
+                            }
+                            if (outcome.droppedAsNonMusic > 0) {
+                                add("跳过 ${outcome.droppedAsNonMusic} 首系统提示音/铃声")
+                            }
+                            if (outcome.failedRoots > 0) {
+                                add("${outcome.failedRoots} 个目录读取失败（索引已保留）")
+                            }
                         }
-                        val failed = if (outcome.failedRoots > 0) {
-                            "；${outcome.failedRoots} 个目录读取失败，其索引已保留"
-                        } else {
-                            ""
-                        }
-                        base + skipped + failed
+                        if (notes.isEmpty()) base else "$base（${notes.joinToString("，")}）"
                     } ?: "还没有扫描过本机音乐",
                     style = LXType.labelLarge,
                     color = colors.ink2,
+                )
+                Text(
+                    text = "系统媒体库只收录共享存储（/sdcard 下 Music、Download 等）里的音频；" +
+                        "App 私有目录 Android/data 里的文件任何播放器都读不到——那是系统的隔离，不是本 App 的权限问题。",
+                    style = LXType.labelSmall,
+                    color = colors.ink3,
                 )
                 state.error?.let { message ->
                     Spacer(Modifier.height(4.dp))
@@ -208,7 +219,9 @@ fun LocalLibraryScreen(
                     Text(text = "添加目录", style = LXType.labelLarge, color = colors.accent)
                 }
                 Text(
-                    text = "系统媒体库扫不到的音乐（例如某些 App 私有目录、刚拷进去还没被系统索引的文件）可以用这里补。",
+                    text = "系统不允许授权「Download 根目录」「Android/data」这类位置（选择器里会置灰），" +
+                        "这是 Android 11+ 的平台限制。要收录它们里面的音乐，请授权其子目录，" +
+                        "或先把歌曲移到 Music/ 之类可授权的位置。",
                     style = LXType.labelSmall,
                     color = colors.ink3,
                 )

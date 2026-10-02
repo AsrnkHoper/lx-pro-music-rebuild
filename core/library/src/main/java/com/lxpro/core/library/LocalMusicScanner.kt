@@ -23,10 +23,14 @@ import javax.inject.Singleton
  * 媒体库扫描结果。
  *
  * @param pathByUri uri → 真实文件路径（供 SAF 扫描排除重复、以及把 SAF 发现的同名 .lrc 挂到媒体库行上）
+ * @param droppedAsTooShort 因「已知时长且短于下限」被跳过的条数（给用户一个"为什么少了"的交代）
+ * @param droppedAsNonMusic 因落在系统提示音/铃声目录被跳过的条数
  */
 data class MediaStoreScan(
     val tracks: List<LocalTrackEntity>,
     val pathByUri: Map<String, String>,
+    val droppedAsTooShort: Int = 0,
+    val droppedAsNonMusic: Int = 0,
 ) {
     val paths: Set<String> = pathByUri.values.toSet()
 }
@@ -44,6 +48,7 @@ data class SafScan(
     val tracks: List<LocalTrackEntity>,
     val skippedAsDuplicate: Int,
     val pathToLrc: Map<String, String>,
+    val droppedAsTooShort: Int = 0,
 )
 
 /**
@@ -77,11 +82,13 @@ class LocalMusicScanner @Inject constructor(
         excludePaths: Set<String> = emptySet(),
     ): SafScan = withContext(Dispatchers.IO) {
         val tree = DocumentFile.fromTreeUri(context, Uri.parse(treeUri))
-            ?: error("授权目录不可读（可能权限已失效）：$treeUri")
+            // 用 SecurityException 而不是普通 error：调用方要据此给"系统限制"这类可操作提示
+            ?: throw SecurityException("无法打开该目录（权限可能已失效）：$treeUri")
 
         val result = LinkedHashMap<String, LocalTrackEntity>()
         val pathToLrc = mutableMapOf<String, String>()
         var skipped = 0
+        var droppedShort = 0
 
         // 按**目录**出队（而不是文件）——只有拿到同一目录的孩子列表，才能找到同名 .lrc
         val directories = ArrayDeque<Pair<DocumentFile, String?>>()
@@ -122,7 +129,10 @@ class LocalMusicScanner @Inject constructor(
                 val meta = readMetadata(child.uri)
                 val durationMs = meta?.durationMs ?: 0L
                 // 只在「读到了时长且明显过短」时跳过；读不到时长的不敢滤，宁可留着
-                if (durationMs in 1 until MIN_DURATION_MS) return@forEach
+                if (durationMs in 1 until MIN_DURATION_MS) {
+                    droppedShort++
+                    return@forEach
+                }
 
                 val title = meta?.title?.takeIf { it.isNotBlank() }
                     ?: name.substringBeforeLast('.', name)
@@ -151,6 +161,7 @@ class LocalMusicScanner @Inject constructor(
             tracks = result.values.toList(),
             skippedAsDuplicate = skipped,
             pathToLrc = pathToLrc,
+            droppedAsTooShort = droppedShort,
         )
     }
 
@@ -177,15 +188,21 @@ class LocalMusicScanner @Inject constructor(
             }
         }.toTypedArray()
 
-        // IS_MUSIC 已排除铃声/通知音；再按最短时长滤掉音效碎片
-        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 " +
-            "AND ${MediaStore.Audio.Media.DURATION} >= ?"
-        val selectionArgs = arrayOf(MIN_DURATION_MS.toString())
+        // ⚠️ 这里**不再**用 `IS_MUSIC != 0` 与 `DURATION >= ?` 做 SQL 过滤，原因是实测踩坑：
+        //   · `DURATION >= ?` 会把 DURATION 为 0/NULL（媒体库尚未完整解析该文件）的行**整条丢掉**，
+        //     用户看到的现象就是「扫描不全」而且毫无提示；
+        //   · `IS_MUSIC != 0` 会丢掉系统没打音乐标记的音频。
+        // 改为：SQL 不做筛选（audio/media 这个表本身只装音频行），判断挪进代码并**统计被跳过条数**，
+        // 与 SAF 侧「读不到时长就不敢滤」的口径保持一致。
+        val selection: String? = null
+        val selectionArgs: Array<String>? = null
         val sortOrder = "${MediaStore.Audio.Media.DATE_ADDED} DESC"
 
         // key = uri，顺手在扫描阶段去重（多卷/重复挂载时 MediaStore 会给出重复行）
         val deduped = LinkedHashMap<String, LocalTrackEntity>()
         val pathByUri = mutableMapOf<String, String>()
+        var droppedTooShort = 0
+        var droppedNonMusic = 0
 
         context.contentResolver.query(collection, projection, selection, selectionArgs, sortOrder)
             ?.use { cursor ->
@@ -203,7 +220,20 @@ class LocalMusicScanner @Inject constructor(
                     val id = cursor.getLong(idIndex)
                     val uri = ContentUris.withAppendedId(collection, id).toString()
                     val path = if (dataIndex >= 0) cursor.getString(dataIndex) else null
+
+                    // 系统提示音/铃声目录里的音频不算音乐（顶替原来 IS_MUSIC 帮我们做的事）
+                    if (!isMusicCandidate(path)) {
+                        droppedNonMusic++
+                        continue
+                    }
+                    val durationMs = cursor.getLong(durationIndex)
+                    if (durationMs in 1 until MIN_DURATION_MS) {
+                        droppedTooShort++
+                        continue
+                    }
+                    // 只把**真正收录**的路径登记进去：排除重复与回挂 .lrc 都以它为准
                     if (!path.isNullOrBlank()) pathByUri[uri] = path
+
                     val title = cursor.getString(titleIndex)?.takeIf { it.isNotBlank() }
                         ?: path?.let { File(it).nameWithoutExtension }
                         ?: continue
@@ -221,7 +251,7 @@ class LocalMusicScanner @Inject constructor(
                         title = title,
                         artist = artist,
                         album = cursor.getString(albumIndex)?.takeIf { it.isNotBlank() },
-                        durationMs = cursor.getLong(durationIndex),
+                        durationMs = durationMs,
                         sizeBytes = cursor.getLong(sizeIndex),
                         mimeType = cursor.getString(mimeIndex),
                         folder = folder,
@@ -236,7 +266,20 @@ class LocalMusicScanner @Inject constructor(
                 }
             }
 
-        return MediaStoreScan(tracks = deduped.values.toList(), pathByUri = pathByUri)
+        return MediaStoreScan(
+            tracks = deduped.values.toList(),
+            pathByUri = pathByUri,
+            droppedAsTooShort = droppedTooShort,
+            droppedAsNonMusic = droppedNonMusic,
+        )
+    }
+
+    /** 路径是不是"可能的音乐"：排除系统提示音目录与不可访问的 Android/data、Android/obb */
+    private fun isMusicCandidate(path: String?): Boolean {
+        if (path.isNullOrBlank()) return true // 拿不到路径就不敢排，宁可留着
+        val lower = path.lowercase()
+        if (lower.contains("/android/data/") || lower.contains("/android/obb/")) return false
+        return NON_MUSIC_SEGMENTS.none { lower.contains("/$it/") }
     }
 
     /**
@@ -322,6 +365,9 @@ class LocalMusicScanner @Inject constructor(
         const val MIN_DURATION_MS = 10_000L
         const val UNKNOWN_ARTIST = "未知艺术家"
         const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
+
+        /** 系统提示音目录：这些是音效，不是音乐 */
+        val NON_MUSIC_SEGMENTS = listOf("ringtones", "notifications", "alarms", "ui")
 
         val AUDIO_EXTENSIONS = setOf(
             "mp3", "flac", "m4a", "aac", "wav", "ogg", "oga", "opus",

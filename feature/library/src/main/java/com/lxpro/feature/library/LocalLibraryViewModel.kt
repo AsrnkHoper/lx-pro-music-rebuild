@@ -72,7 +72,13 @@ class LocalLibraryViewModel @Inject constructor(
                 .onFailure { throwable ->
                     _uiState.value = _uiState.value.copy(
                         scanning = false,
-                        error = throwable.message ?: "读取该目录失败",
+                        // 权限类失败要给**可操作**的提示，而不是笼统的"读取失败"
+                        error = when (throwable) {
+                            is SecurityException ->
+                                "系统限制无法访问该目录。Download 根目录、Android/data 这类位置" +
+                                    "系统不允许授权，请改选它的子目录。"
+                            else -> throwable.message ?: "读取该目录失败"
+                        },
                     )
                 }
         }
