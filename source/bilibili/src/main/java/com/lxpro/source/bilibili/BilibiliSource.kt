@@ -1,5 +1,6 @@
 package com.lxpro.source.bilibili
 
+import com.lxpro.core.model.CommentResult
 import com.lxpro.core.model.LyricInfo
 import com.lxpro.core.model.MusicUrl
 import com.lxpro.core.model.Quality
@@ -201,6 +202,14 @@ class BilibiliSource @Inject constructor(
     }
 
     override suspend fun getPic(song: Song): String? = song.picUrl
+
+    // ── 评论（B 站无歌曲评论接口，暂未实现）──────────────────────────────
+
+    override suspend fun getComment(song: Song, page: Int, limit: Int): CommentResult =
+        CommentResult(id, emptyList(), 0, page, limit, 1)
+
+    override suspend fun getHotComment(song: Song, page: Int, limit: Int): CommentResult =
+        CommentResult(id, emptyList(), 0, page, limit, 1)
 
     override fun getDetailPageUrl(song: Song): String = "https://www.bilibili.com/video/${song.id}"
 

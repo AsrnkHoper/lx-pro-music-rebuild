@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,7 +53,8 @@ fun LXMiniPlayerBar(
         modifier = modifier
             .fillMaxWidth()
             .height(LXDimens.miniBarHeight)
-            .background(colors.bg2)
+            // 动态背景激活时透明，让封面透到迷你条（它不遮挡内容区，无透出滚动内容的坑）
+            .background(if (LXTheme.dynamicBgActive) Color.Transparent else colors.bg2)
             .clickable(onClick = onOpenPlayer)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

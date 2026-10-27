@@ -14,6 +14,8 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:library"))
     implementation(project(":core:datastore"))
+    // 搜索结果也要套用「重命名」修正，否则同一首歌在歌单与搜索里名字不一致
+    implementation(project(":core:playlist"))
     implementation(project(":source:api"))
 
     implementation(platform(libs.androidx.compose.bom))

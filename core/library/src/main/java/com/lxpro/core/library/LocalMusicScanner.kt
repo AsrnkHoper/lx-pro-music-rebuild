@@ -65,6 +65,13 @@ class LocalMusicScanner @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
 
+    /**
+     * 时长下限：设置「忽略短于 30 秒的文件」开 = 30s，关 = 10s（只过滤音效碎片）。
+     * 由 [LocalMusicRepository] 按 DataStore 设置实时写入。
+     */
+    @Volatile
+    var minDurationMs: Long = 30_000L
+
     suspend fun scanMediaStore(): MediaStoreScan =
         withContext(Dispatchers.IO) { queryMediaStore() }
 
@@ -129,7 +136,7 @@ class LocalMusicScanner @Inject constructor(
                 val meta = readMetadata(child.uri)
                 val durationMs = meta?.durationMs ?: 0L
                 // 只在「读到了时长且明显过短」时跳过；读不到时长的不敢滤，宁可留着
-                if (durationMs in 1 until MIN_DURATION_MS) {
+                if (durationMs in 1 until minDurationMs) {
                     droppedShort++
                     return@forEach
                 }
@@ -227,7 +234,7 @@ class LocalMusicScanner @Inject constructor(
                         continue
                     }
                     val durationMs = cursor.getLong(durationIndex)
-                    if (durationMs in 1 until MIN_DURATION_MS) {
+                    if (durationMs in 1 until minDurationMs) {
                         droppedTooShort++
                         continue
                     }
@@ -361,8 +368,6 @@ class LocalMusicScanner @Inject constructor(
     }
 
     private companion object {
-        /** 短于 10 秒的不当作"音乐"（音效/提示音碎片） */
-        const val MIN_DURATION_MS = 10_000L
         const val UNKNOWN_ARTIST = "未知艺术家"
         const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
 

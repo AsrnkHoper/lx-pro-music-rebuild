@@ -21,6 +21,8 @@ data class LXColorScheme(
     val ink2: Color,
     val ink3: Color,
     val accent: Color,
+    /** 破坏性操作（从歌单移除 / 已修正标记）。取值来自原型各主题的 `--danger`，非肉眼估色 */
+    val danger: Color,
     val hairline: Color,
     val inset: Color,
     val leak1: Color,
@@ -64,7 +66,6 @@ object LXDimens {
     /** 迷你播放条 / 底部 Tab（14 §3.2） */
     val miniBarHeight = 56.dp
     val tabBarHeight = 64.dp
-    val bottomInset = 158.dp
 
     val coverList = 44.dp
     val coverFull = 270.dp

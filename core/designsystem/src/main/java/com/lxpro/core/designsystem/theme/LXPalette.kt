@@ -5,10 +5,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * 七套配色（六套实测 + 第 7 套封面动态取色占位）。
+ * 六套实测配色（13 §4）。
  *
  * 数据来源：`DesignerDocs/LX/UI/research/derive_tokens.py` → `13-色彩系统.md` §4/§5。
  * 默认 = ④ 白·留白极简（12 §2 #4 已取代原「深色优先」）。
+ *
+ * 注：原「第 7 套 · 封面动态取色」已按 2026-10-24 用户裁决改为 **LX-Music 式动态背景**
+ * （独立开关，封面模糊 + 遮罩叠加在六套之上，见 `ambient/LXDynamicBackground.kt`），
+ * 不再是六顶点插值的第七套配色。
  */
 sealed class LXPalette(
     val id: String,
@@ -29,6 +33,7 @@ sealed class LXPalette(
             ink2 = Color(0xFF969E8D),
             ink3 = Color(0xFF61665B),
             accent = Color(0xFF939E7E),
+            danger = Color(0xFFC47A72),
             hairline = Color(0x17DDE0D6),
             inset = Color(0x0FDDE0D6),
             leak1 = Color(0x4D788462),
@@ -55,6 +60,7 @@ sealed class LXPalette(
             ink2 = Color(0xFFA4AD9B),
             ink3 = Color(0xFF6F7569),
             accent = Color(0xFF9DA886),
+            danger = Color(0xFFC98880),
             hairline = Color(0x17E2E6DB),
             inset = Color(0x0FE2E6DB),
             leak1 = Color(0x478C9874),
@@ -82,6 +88,7 @@ sealed class LXPalette(
             ink2 = Color(0xFF556373),
             ink3 = Color(0xFF8A99A6),
             accent = Color(0xFF4F6B84),
+            danger = Color(0xFF9C4F52),
             hairline = Color(0x14232D36),
             inset = Color(0x0D232D36),
             leak1 = Color(0xF2D4E6F3),
@@ -108,6 +115,7 @@ sealed class LXPalette(
             ink2 = Color(0xFF6E6D68),
             ink3 = Color(0xFFA39C90),
             accent = Color(0xFF87755C),
+            danger = Color(0xFFA8524A),
             hairline = Color(0x122E2A23),
             inset = Color(0x0B2E2A23),
             leak1 = Color(0xF2FAF2E2),
@@ -134,6 +142,7 @@ sealed class LXPalette(
             ink2 = Color(0xFF6B6B6B),
             ink3 = Color(0xFFA6A6A6),
             accent = Color(0xFF575757),
+            danger = Color(0xFF8A8A8A),
             hairline = Color(0x14222222),
             inset = Color(0x0D222222),
             leak1 = Color(0xF2FFFFFF),
@@ -160,6 +169,7 @@ sealed class LXPalette(
             ink2 = Color(0xFF949494),
             ink3 = Color(0xFF575757),
             accent = Color(0xFFBDBDBD),
+            danger = Color(0xFFC9A0A0),
             hairline = Color(0x17E6E6E6),
             inset = Color(0x0FE6E6E6),
             leak1 = Color(0x33969696),
@@ -174,25 +184,13 @@ sealed class LXPalette(
         ),
     )
 
-    /**
-     * 第 7 套 · 封面动态取色。
-     * ⚠️ M0 阶段为**占位**：算法见 13 §6（在六顶点间插值），M3 落地；
-     * 在算法落地前回落 ④ 白，符合 13 §6.3 的降级链。
-     */
-    data object Dynamic : LXPalette(
-        id = "dynamic",
-        displayName = "封面动态取色",
-        colors = WhiteMinimal.colors,
-        scalars = WhiteMinimal.scalars,
-    )
-
     companion object {
-        /** 六套实测配色（不含第 7 套占位） */
+        /** 六套实测配色（13 §4） */
         val measured: List<LXPalette> = listOf(
             GreenHard, GreenSoft, BlueMist, WhiteMinimal, GrayLight, GrayDeep,
         )
 
-        val all: List<LXPalette> = measured + Dynamic
+        val all: List<LXPalette> = measured
 
         val default: LXPalette = WhiteMinimal
 

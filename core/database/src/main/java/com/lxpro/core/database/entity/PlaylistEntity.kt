@@ -1,5 +1,6 @@
 package com.lxpro.core.database.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -16,6 +17,19 @@ data class PlaylistEntity(
     val isSystem: Boolean,
     val createdAt: Long,
     val updatedAt: Long,
+    /**
+     * 自定义封面：指向歌单内某首歌（coverSongId + coverSource），
+     * 两列都非空才生效；该歌被移出歌单后自动回落到「第一首有封面的歌」。
+     */
+    val coverSongId: String? = null,
+    val coverSource: String? = null,
+    /** 自定义封面：本地图片（SAF content uri，已取持久权限）。优先级高于 coverSongId */
+    val coverImageUri: String? = null,
+    /**
+     * 一级页排序位（0 起）。系统歌单恒为 0（固定首位、不可拖拽），
+     * 其余歌单由长按拖拽整体重写。
+     */
+    @ColumnInfo(defaultValue = "0") val position: Int = 0,
 )
 
 /**

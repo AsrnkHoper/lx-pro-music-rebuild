@@ -38,6 +38,10 @@ interface LocalTrackDao {
     @Query("DELETE FROM local_tracks WHERE safRootUri = :rootUri")
     suspend fun deleteBySafRoot(rootUri: String)
 
+    /** 删除单行（下载任务被删时，把它的索引行一起撤掉，避免留下死链） */
+    @Query("DELETE FROM local_tracks WHERE uri = :uri")
+    suspend fun deleteByUri(uri: String)
+
     @Query("DELETE FROM local_tracks")
     suspend fun clear()
 }

@@ -22,9 +22,7 @@ import com.lxpro.core.designsystem.theme.lxSafeDrawingPadding
 import com.lxpro.music.BuildConfig
 
 /**
- * 关于页。
- * ⚠️ 构建信息用于验证「构建缓存导致代码不更新」——每次验证都核对 commit SHA（06 M0.2）。
- * 合规声明文本**不得擅自改写**（02 §10.2）。
+ * 关于页：应用名 + 版本 + 合规声明（02 §10.2）。
  */
 @Composable
 fun AboutScreen(
@@ -47,14 +45,10 @@ fun AboutScreen(
 
         Spacer(Modifier.height(LXDimens.space8))
 
-        LXSectionHeader(title = "构建信息")
+        LXSectionHeader(title = "阿玉音乐")
 
         LXCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(LXDimens.space16)) {
-                Text(text = "commit  ${BuildConfig.GIT_SHA}", style = LXType.bodyMedium, color = colors.ink1)
-                Spacer(Modifier.height(LXDimens.space4))
-                Text(text = "构建于  ${BuildConfig.BUILD_TIME}", style = LXType.bodyMedium, color = colors.ink2)
-                Spacer(Modifier.height(LXDimens.space4))
                 Text(
                     text = "版本  ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                     style = LXType.bodyMedium,
@@ -78,8 +72,8 @@ fun AboutScreen(
     }
 }
 
-/** 02 §10.2 原文，不得擅自修改 */
-private const val COMPLIANCE_STATEMENT = """LX Pro 是一款开源的本地音乐播放器。
+/** 02 §10.2 原文，应用名随正式定名更新 */
+private const val COMPLIANCE_STATEMENT = """阿玉音乐是一款开源的本地音乐播放器。
 本应用不提供、不分发、不推荐任何音乐内容或音源脚本。
 用户自行导入的音源脚本由其自行承担相应责任。
 本应用不对用户使用第三方音源产生的任何后果负责。

@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.lxpro.android.library)
+    alias(libs.plugins.lxpro.hilt)
 }
 
 android {

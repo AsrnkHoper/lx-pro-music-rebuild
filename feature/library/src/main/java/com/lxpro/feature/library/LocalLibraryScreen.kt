@@ -27,7 +27,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,14 +46,30 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lxpro.core.designsystem.component.AsyncArtwork
 import com.lxpro.core.designsystem.component.LXCard
 import com.lxpro.core.designsystem.component.LXSectionHeader
+import com.lxpro.core.designsystem.component.LXViewToggle
+import com.lxpro.core.designsystem.component.LXViewToggleGroup
+import com.lxpro.core.designsystem.component.LxIcons
 import com.lxpro.core.designsystem.theme.LXDimens
 import com.lxpro.core.designsystem.theme.LXTheme
 import com.lxpro.core.designsystem.theme.LXType
 import com.lxpro.core.designsystem.theme.lxSafeDrawingPadding
 import com.lxpro.core.model.Song
 
+/** 首页两张卡带过来的动作（权威稿 `data-act` 是两个不同动作） */
+object LocalLibraryAction {
+    const val SCAN = "scan"
+    const val IMPORT = "import"
+}
+
+/** 路由参数名，与 `Routes.LIBRARY` 的占位符一致 */
+const val ARG_LIBRARY_ACTION = "action"
+
+private fun hasAudioPermission(context: android.content.Context, permission: String): Boolean =
+    androidx.core.content.ContextCompat.checkSelfPermission(context, permission) ==
+        android.content.pm.PackageManager.PERMISSION_GRANTED
+
 /**
- * 本地音乐页（M2 双模式支柱之一：扫描 / 导入 / 索引）。
+ * 本地音乐。
  *
  * 两个入口：
  * - **扫描本机音乐**：走 MediaStore（系统媒体库），覆盖主流场景
@@ -59,6 +79,7 @@ import com.lxpro.core.model.Song
 fun LocalLibraryScreen(
     onSongClick: (Song, List<Song>) -> Unit,
     modifier: Modifier = Modifier,
+    initialAction: String = "",
     viewModel: LocalLibraryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -67,6 +88,11 @@ fun LocalLibraryScreen(
     val colors = LXTheme.colors
     val scalars = LXTheme.scalars
     val context = LocalContext.current
+    // 曲目列表的「有图 / 无图」——与「我的歌单」同一套图标式切换（用户 2026-10-03 要求全站统一）。
+    // 默认值跟随设置；本页切换只覆盖本次会话（不反向改设置）
+    val defaultShowCover by viewModel.showCover.collectAsStateWithLifecycle()
+    var coverOverride by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    val withCover = coverOverride ?: defaultShowCover
 
     val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         Manifest.permission.READ_MEDIA_AUDIO
@@ -96,6 +122,20 @@ fun LocalLibraryScreen(
             ?: treeUri.lastPathSegment
             ?: "已授权目录"
         viewModel.addSafRoot(treeUri.toString(), displayName)
+    }
+
+    // 从首页两张卡进来时各执行各的动作（权威稿 `data-act="scan"` / `"import"` 是两个动作）
+    LaunchedEffect(initialAction) {
+        when (initialAction) {
+            LocalLibraryAction.SCAN -> if (hasAudioPermission(context, audioPermission)) {
+                viewModel.scan()
+            } else {
+                permissionLauncher.launch(audioPermission)
+            }
+
+            LocalLibraryAction.IMPORT -> treeLauncher.launch(null)
+            else -> Unit
+        }
     }
 
     Column(
@@ -239,6 +279,22 @@ fun LocalLibraryScreen(
                 )
             }
         } else {
+            // 列表头：曲目数 + 有图/无图切换（图标式，与「我的歌单」一致）
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "本机曲目 ${tracks.size}",
+                    style = LXType.labelSmall,
+                    color = colors.ink3,
+                    modifier = Modifier.weight(1f),
+                )
+                LXViewToggleGroup {
+                    LXViewToggle(LxIcons.CoverBox, "有图模式", withCover) { coverOverride = true }
+                    LXViewToggle(LxIcons.ViewList, "无图模式", !withCover) { coverOverride = false }
+                }
+            }
             LazyColumn(
                 contentPadding = PaddingValues(bottom = scalars.sectionGap),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -250,6 +306,7 @@ fun LocalLibraryScreen(
                 ) { song ->
                     LocalTrackRow(
                         song = song,
+                        withCover = withCover,
                         onClick = { onSongClick(song, tracks) },
                     )
                 }
@@ -259,7 +316,7 @@ fun LocalLibraryScreen(
 }
 
 @Composable
-private fun LocalTrackRow(song: Song, onClick: () -> Unit) {
+private fun LocalTrackRow(song: Song, withCover: Boolean, onClick: () -> Unit) {
     val colors = LXTheme.colors
     Row(
         modifier = Modifier
@@ -269,14 +326,16 @@ private fun LocalTrackRow(song: Song, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        AsyncArtwork(
-            model = song.picUrl,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(8.dp)),
-        )
+        if (withCover) {
+            AsyncArtwork(
+                model = song.picUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+            )
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.name,

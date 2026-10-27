@@ -1,5 +1,6 @@
 package com.lxpro.source.api
 
+import com.lxpro.core.model.CommentResult
 import com.lxpro.core.model.LyricInfo
 import com.lxpro.core.model.MusicUrl
 import com.lxpro.core.model.Quality
@@ -8,7 +9,7 @@ import com.lxpro.core.model.SourceId
 import kotlinx.coroutines.flow.StateFlow
 
 /** 音源支持的 action 集合（04 §2） */
-enum class SourceAction { MUSIC_URL, LYRIC, PIC }
+enum class SourceAction { MUSIC_URL, LYRIC, PIC, COMMENT }
 
 data class SearchResult(
     val list: List<Song>,
@@ -35,6 +36,12 @@ interface SourceApi {
 
     suspend fun getPic(song: Song): String?
 
+    /** 最新评论（page 从 1 开始） */
+    suspend fun getComment(song: Song, page: Int = 1, limit: Int = 20): CommentResult
+
+    /** 热门评论 */
+    suspend fun getHotComment(song: Song, page: Int = 1, limit: Int = 20): CommentResult
+
     fun getDetailPageUrl(song: Song): String?
 }
 
@@ -44,6 +51,12 @@ interface SourceRegistry {
     val enabled: StateFlow<List<SourceApi>>
 
     fun byId(id: SourceId): SourceApi?
+
+    /**
+     * 勾选 / 取消勾选某个音源（首页搜索面板的「搜索平台」多选）。
+     * `enabled` 是**搜索实际使用的集合**，所以选择必须落到这里，不能只存在界面状态里。
+     */
+    fun setEnabled(id: SourceId, enabled: Boolean)
 
     /** 导入脚本后动态注册 */
     fun register(api: SourceApi)

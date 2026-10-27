@@ -1,6 +1,7 @@
 package com.lxpro.core.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 /** 音源标识（内置 + 脚本动态扩展），如 "bi" | "kw" | "kg"（02 §6.1） */
 @JvmInline
@@ -22,6 +23,14 @@ const val LOCAL_SOURCE_NAME = "本地"
 object LocalSourceKind {
     const val MEDIA_STORE = "media_store"
     const val SAF = "saf"
+
+    /**
+     * 应用内下载完成的文件（M3 任务 8）。
+     *
+     * 单独一种通道是**必须的**：媒体库扫描的「标记-清除」按 `media_store` 批次清、
+     * SAF 按目录清 —— 若不分开，一次扫描就会把下载来的曲目全删掉。
+     */
+    const val DOWNLOAD = "download"
 }
 
 /**
@@ -34,18 +43,22 @@ object LocalSourceKind {
 const val LOCAL_ART_PREFIX = "localart://"
 
 /**
- * 双模式（15 §4）。全局单例、跨页面保持，且首页与搜索页共用同一份状态。
+ * 搜索范围过滤（15 §4）。全局单例、跨页面保持，且首页与搜索页共用同一份状态。
+ *
+ * 默认 [ALL]：统一搜索，本地结果区在前 + 在线结果区接后；[ONLINE] / [LOCAL] 只是过滤。
  *
  * ⚠️ 切换模式必须**保留搜索关键词并立即重搜** —— 用户常「在线搜不到 → 切本地看看」。
  */
 enum class SearchMode {
+    ALL,
     ONLINE,
     LOCAL,
     ;
 
     companion object {
+        /** 已持久化的旧值（"ONLINE" / "LOCAL"）仍能解析；缺省与未知值一律回落 [ALL] */
         fun fromId(value: String?): SearchMode =
-            entries.firstOrNull { it.name.equals(value, ignoreCase = true) } ?: ONLINE
+            entries.firstOrNull { it.name.equals(value, ignoreCase = true) } ?: ALL
     }
 }
 
@@ -80,6 +93,13 @@ data class Song(
     val fee: Int = 0,
     /** 源特有字段（hash / copyrightId / strMediaMid ...） */
     val raw: Map<String, String> = emptyMap(),
+    /**
+     * 用户钉住的「换源目标」（04 · 换源；对齐 LX `meta.toggleMusicInfo`）。
+     * 播放时优先用它取流；持久化在 `song_overrides.toggleSongJson`，**不进歌单的 songJson**
+     * （@Transient 使其序列化时被跳过），由 [com.lxpro.core.playlist] 的 override 合并附上。
+     */
+    @Transient
+    val toggleSong: Song? = null,
 )
 
 /** 歌词（02 §6.1） */
@@ -96,6 +116,33 @@ data class LyricInfo(
 data class MusicUrl(
     val url: String,
     val quality: Quality,
+)
+
+/** 评论（02 §6.1，对应 walnut comment.filterComment 的统一结构） */
+@Serializable
+data class CommentInfo(
+    val id: String,
+    val text: String,
+    val time: Long? = null,
+    val timeStr: String? = null,
+    val userName: String,
+    val avatar: String? = null,
+    val userId: String? = null,
+    val likedCount: Long? = null,
+    val replyNum: Long? = null,
+    val location: String? = null,
+    val images: List<String> = emptyList(),
+    val reply: List<CommentInfo> = emptyList(),
+)
+
+@Serializable
+data class CommentResult(
+    val source: SourceId,
+    val comments: List<CommentInfo>,
+    val total: Int,
+    val page: Int,
+    val limit: Int,
+    val maxPage: Int,
 )
 
 /**

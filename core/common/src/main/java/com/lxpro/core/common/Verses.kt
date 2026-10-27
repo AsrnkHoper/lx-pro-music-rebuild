@@ -1,0 +1,143 @@
+package com.lxpro.core.common
+
+// ⚠️ 本文件由 `tools/gen_verses.py` 从
+// `MyDocs/LX/精品文案.md` 生成，**不要手改**：改文案请改源文件后重新生成。
+//
+// 组织方式是「分类 × 时段」双维（用户 2026-09-30 裁决两者都留）：
+// 时段决定偏好分类（见 VersePicker.SLOT_CATEGORIES），分类可由设置页开关。
+// 轮换周期由页面给：首页 9s、歌单页 11s（对齐 mockup_home / mockup_playlist）。
+
+/** 文案分类（6 组），顺序与源文件一致 */
+object VerseCategories {
+    const val GOD = "神"
+    const val WATER = "水系与泪"
+    const val LOVE_HATE = "爱与恨的悖论"
+    const val FATE_TIME_SELF = "命运、时间与自我"
+    const val BLADE_ANCIENT = "短刃·古风"
+    const val LITERATURE = "文学"
+    val ALL: List<String> = listOf(
+        "神",
+        "水系与泪",
+        "爱与恨的悖论",
+        "命运、时间与自我",
+        "短刃·古风",
+        "文学",
+    )
+}
+
+/** 一句文案：所属分类 + 正文 */
+data class Verse(val category: String, val text: String)
+
+/** 全部文案（110 条），顺序与源文件一致 */
+val ALL_VERSES: List<Verse> = listOf(
+    Verse(VerseCategories.GOD, "天命如舟，行运如水。"),
+    Verse(VerseCategories.GOD, "怨这个字太美妙了，爱不满，恨不全，所以怨。"),
+    Verse(VerseCategories.GOD, "雨的哲学是泪的形而上学。"),
+    Verse(VerseCategories.GOD, "人的眼泪总是向下坠落，要如何仰头才能接住悲伤。"),
+    Verse(VerseCategories.GOD, "死亡是一场乔迁之喜，从有子女的地方搬到有父母的地方。"),
+    Verse(VerseCategories.GOD, "命运的起笔是很轻的，当你读到它为你写的故事时，已经是高潮片段了。"),
+    Verse(VerseCategories.GOD, "思念是无法降解的塑料，见面枯木逢春的解药。"),
+    Verse(VerseCategories.GOD, "时间是带走我的洪水，但我亦为河流。"),
+    Verse(VerseCategories.GOD, "你瞳孔的洋流是一场酸雨，我想伸手去接，它却融化了我的尾戒。"),
+    Verse(VerseCategories.GOD, "东亚人的眼眶太浅了，载不住泪，载不住悲；但东亚人的眼睛是黑的，藏得住泪，藏得住悲。"),
+    Verse(VerseCategories.WATER, "两滴重量与成分都相等的盐水，会有一滴是眼泪吗。"),
+    Verse(VerseCategories.WATER, "我的枕头不是荞麦做的，我落下的泪，也不会在草丛发芽；它只会随着时间，留下深深的黄斑。"),
+    Verse(VerseCategories.WATER, "全世界的水都会重逢，北冰洋与尼罗河会在湿云里交融。"),
+    Verse(VerseCategories.WATER, "你的眼睛又不是乞拉朋齐，不要哭了，世界上已经有一个雨极了。"),
+    Verse(VerseCategories.WATER, "我的羽翼不太重，刚好够托起你的泪。"),
+    Verse(VerseCategories.WATER, "等伦敦雾雨悬停，我的长睫。"),
+    Verse(VerseCategories.WATER, "天空是一帧低饱和的霾蓝影像。"),
+    Verse(VerseCategories.WATER, "雨流转着，生命流转着，我流转着。"),
+    Verse(VerseCategories.WATER, "你淡漠的瞳孔埋藏着一场有时差的雨。"),
+    Verse(VerseCategories.WATER, "人和人之间是一场仓促的骤雨，直到很久以后还是划在玻璃上的雨痕。"),
+    Verse(VerseCategories.LOVE_HATE, "如果爱我是假，那恨我会是假吗。"),
+    Verse(VerseCategories.LOVE_HATE, "人有两次真心：第一次是情窦初开，第二次是明知不可为而为之。"),
+    Verse(VerseCategories.LOVE_HATE, "人没有两颗心脏，所以爱恨同源，悲欢共振。"),
+    Verse(VerseCategories.LOVE_HATE, "爱是学不会告别的，我练习千百遍，开口仍是你的名字。"),
+    Verse(VerseCategories.LOVE_HATE, "谎言像未拆的绷带，你每说一句爱我，伤口就新鲜一寸。"),
+    Verse(VerseCategories.LOVE_HATE, "用什么擦拭我的眼泪：工业纸巾、莎士比亚的诗集，还是你同样湿润的眼睛。"),
+    Verse(VerseCategories.LOVE_HATE, "我偏爱淡雅的一切，唯有你，我希望再浓烈些。"),
+    Verse(VerseCategories.LOVE_HATE, "指尖缠绕的发丝，是你送我的第一枚戒指。"),
+    Verse(VerseCategories.LOVE_HATE, "我的情绪太重太浓，像一团湿棉花；你问我想要说什么，我不知道，于是我叹气。"),
+    Verse(VerseCategories.LOVE_HATE, "我斟酌着我的话，怕说的太重伤到你，又怕太轻你不在意，所以我凌迟我自己。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "如果人生里的苦痛不能剥离，那就让爱也留下吧，成为第二种可以倚仗的心跳。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "我想要固守我的山，我的水，我想我该原谅我的谬误，我的长悲。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "生命里的有些缘分到底是幸运还是诅咒，悬在头顶的达摩克利斯之剑；我请求你高抬贵手，我不愿再为此流更多眼泪。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "人们相逢恨晚，相逢恨早，唯独不恨相逢。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "缘分是本书，翻得太快会错过，读得认真又流泪。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "我常以为是丑女造就了美人。我常以为是愚氓举出了智者。我常以为是懦夫衬照了英雄。我常以为是众生度化了佛祖。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "恨意像隐翅虫，挥走它需要掌握合适的力度。力度太重，就会鱼死网破；力度太轻，就是对自己命运的轻蔑。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "牛顿的苹果砸向我，我伸手接住崇祯五年的雪，我张嘴浅尝的是黄初八年雨，然后与你同淋黄初八年的雨。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "白水鉴心。我那样勇敢地靠近你，是因为我知道，这样惊天动地的蠢事，不会再有第二次。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "用左手写字，也让世界在我笔下踉跄几次。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "我们都吞咽了太多的意义，却忘了生命只需要呼吸。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "书里写尽了意料之外的黄昏，却没写出过闷闷不乐的清晨。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "表达自己是一件很累的事情，像从我凌乱的一天里捡出一团毛线，慢吞吞地缠起来，跟你说哪里是头哪里是尾；绝大部分时候，我连气都不叹就决定算了。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "世界从未像奖励豌豆公主那样奖励敏感的人。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "你是钢琴的第十八键，是我永恒触摸不到的距离。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "我要去看西湖结冰，看断桥残雪，看你望向我的眼睛。"),
+    Verse(VerseCategories.FATE_TIME_SELF, "幸福会像江南烟雨一样，忽然降临吗。"),
+    Verse(VerseCategories.BLADE_ANCIENT, "春不渡客便剑指南春。"),
+    Verse(VerseCategories.BLADE_ANCIENT, "春不渡我，剑挑春落。"),
+    Verse(VerseCategories.BLADE_ANCIENT, "枯木龙吟。"),
+    Verse(VerseCategories.BLADE_ANCIENT, "沸血煮相思。"),
+    Verse(VerseCategories.BLADE_ANCIENT, "相思一夜行遍千江水。"),
+    Verse(VerseCategories.BLADE_ANCIENT, "剑出鞘，恩怨了。"),
+    Verse(VerseCategories.BLADE_ANCIENT, "三千梨花树。"),
+    Verse(VerseCategories.BLADE_ANCIENT, "悲天纷纷泪顺东，回眸一滴雨浅低。"),
+    Verse(VerseCategories.LITERATURE, "我们并不是生活在土地上，事实上我们生活在时间里。"),
+    Verse(VerseCategories.LITERATURE, "我的悲伤还来不及出发，就已经到站下车。"),
+    Verse(VerseCategories.LITERATURE, "死亡不是失去生命，而是走出了时间。"),
+    Verse(VerseCategories.LITERATURE, "我们都是这个时代的孤儿，在细雨中呼喊，始终得不到回应。"),
+    Verse(VerseCategories.LITERATURE, "无论多么美好的体验都会成为过去，无论多么深切的悲哀也会落在昨天，一如时光的流逝毫不留情。"),
+    Verse(VerseCategories.LITERATURE, "我独自远行，不但没有你，并且再没有别的影在黑暗里。只有我被黑暗沉没，那世界全属于我自己。"),
+    Verse(VerseCategories.LITERATURE, "人类的悲欢并不相通，我只觉得他们吵闹。"),
+    Verse(VerseCategories.LITERATURE, "世钧，我们回不去了。"),
+    Verse(VerseCategories.LITERATURE, "笑，全世界便与你同声笑；哭，你便独自哭。"),
+    Verse(VerseCategories.LITERATURE, "满天星光，满屋月亮，人生何如，为什么这么悲凉。"),
+    Verse(VerseCategories.LITERATURE, "在稠人广众之中，感得的这种孤独，倒比一个人在冷清的地方，感得的那种孤独，还更难受。"),
+    Verse(VerseCategories.LITERATURE, "你不愿意种花，你说，我不愿看见它一点点凋落。是的，为了避免结束，你避免了一切开始。"),
+    Verse(VerseCategories.LITERATURE, "该得到的尚未得到，该丧失的早已丧失。"),
+    Verse(VerseCategories.LITERATURE, "我是一个在黑暗中大雪纷飞的人哪。"),
+    Verse(VerseCategories.LITERATURE, "目光放远，万事皆悲。"),
+    Verse(VerseCategories.LITERATURE, "胆小鬼连幸福都害怕，碰到棉花都会受伤。"),
+    Verse(VerseCategories.LITERATURE, "若能避开猛烈的狂喜，自然不会有悲痛来袭。"),
+    Verse(VerseCategories.LITERATURE, "凌晨四点钟，看到海棠花未眠。"),
+    Verse(VerseCategories.LITERATURE, "死并非生的对立面，而作为生的一部分永存。"),
+    Verse(VerseCategories.LITERATURE, "哪里会有人喜欢孤独，不过是不喜欢失望。"),
+    Verse(VerseCategories.LITERATURE, "说是悲哀也可以吧，事物的味道，我尝得太早了。"),
+    Verse(VerseCategories.LITERATURE, "世上没有像模子刻出来一样的恶人。平时大家都是善人，至少大家都是普通人。然而正因为如此，所以才可怕。"),
+    Verse(VerseCategories.LITERATURE, "人的内心存在两种相互矛盾的情感。无疑，没有人不同情他人的不幸。可是，一旦对方好歹从不幸中挣脱出来，却又因此产生若有所失的怅惘。"),
+    Verse(VerseCategories.LITERATURE, "意识太过丰富，这是一种病，一种真正的、彻头彻尾的病。"),
+    Verse(VerseCategories.LITERATURE, "我不仅不能成为恶人，甚至不能成为任何东西：既不能成为恶人，也不能成为好人，既不能成为英雄，也不能成为虫豸。"),
+    Verse(VerseCategories.LITERATURE, "幸福的家庭都是相似的，不幸的家庭各有各的不幸。"),
+    Verse(VerseCategories.LITERATURE, "幸福的人之所以感到幸福，只是因为不幸的人沉默地背负着他们的重担。"),
+    Verse(VerseCategories.LITERATURE, "我的名字对你有什么意义？它会死去，像大海拍击海岸，发出忧郁的喧响。"),
+    Verse(VerseCategories.LITERATURE, "它寻求什么，在遥远的异地？它抛下什么，在可爱的故乡。"),
+    Verse(VerseCategories.LITERATURE, "我回到我的城市，熟悉如眼泪。"),
+    Verse(VerseCategories.LITERATURE, "目的虽有，却无路可循；我们称之为路的，无非是踌躇。"),
+    Verse(VerseCategories.LITERATURE, "一切障碍都在粉碎我。"),
+    Verse(VerseCategories.LITERATURE, "习惯于绝望的处境比绝望的处境本身还要糟。"),
+    Verse(VerseCategories.LITERATURE, "真正严肃的哲学问题只有一个，那就是自杀。"),
+    Verse(VerseCategories.LITERATURE, "谁此时没有房屋，就不必再建筑。谁此时孤独，就永远孤独。"),
+    Verse(VerseCategories.LITERATURE, "我给你贫穷的街道、绝望的日落、破败郊区的月亮。我给你一个久久地望着孤月的人的悲哀。"),
+    Verse(VerseCategories.LITERATURE, "我一事无成，也永远不会有所成就。我甚至不能希望自己有所成就。"),
+    Verse(VerseCategories.LITERATURE, "我们从未爱过任何人。我们爱的是对某人的想法。"),
+    Verse(VerseCategories.LITERATURE, "她感到自己非常年轻，却又难以形容地老迈。"),
+    Verse(VerseCategories.LITERATURE, "当一个人不能拥有的时候，他唯一能做的便是不要忘记。"),
+    Verse(VerseCategories.LITERATURE, "过去都是假的，回忆是一条没有归途的路，以往的一切春天都无法复原，即使最狂热最坚贞的爱情，归根结底也不过是一种瞬息即逝的现实，唯有孤独永恒。"),
+    Verse(VerseCategories.LITERATURE, "于是我们奋力向前划，逆流而上的小舟，不停地倒退，进入过去。"),
+    Verse(VerseCategories.LITERATURE, "世界就是这样告终，不是嘭的一响，而是嘘的一声。"),
+    Verse(VerseCategories.LITERATURE, "我是一片连月亮也厌恶的墓地。"),
+    Verse(VerseCategories.LITERATURE, "死亡是来自德国的大师。"),
+    Verse(VerseCategories.LITERATURE, "我永恒的灵魂，注视着你的心，纵然黑夜孤寂，白昼如焚。"),
+    Verse(VerseCategories.LITERATURE, "当你老了，头发白了，睡意昏沉。"),
+    Verse(VerseCategories.LITERATURE, "万物崩散，中心难再维系。"),
+    Verse(VerseCategories.LITERATURE, "世界打垮每一个人，许多人在被打垮的地方变得坚强。"),
+    Verse(VerseCategories.LITERATURE, "过去从未死去。它甚至还没有过去。"),
+    Verse(VerseCategories.LITERATURE, "我已经老了。"),
+    Verse(VerseCategories.LITERATURE, "任何事物都不会发生两次。"),
+    Verse(VerseCategories.LITERATURE, "与恶龙缠斗过久，自身亦成为恶龙；凝视深渊过久，深渊将回以凝视。"),
+    Verse(VerseCategories.LITERATURE, "人生如同钟摆，在痛苦与无聊之间摇摆。"),
+    Verse(VerseCategories.LITERATURE, "世界在变，而我始终如一。"),
+)

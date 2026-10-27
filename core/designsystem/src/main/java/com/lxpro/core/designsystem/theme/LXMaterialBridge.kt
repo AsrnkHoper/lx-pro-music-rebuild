@@ -16,12 +16,25 @@ import androidx.compose.ui.graphics.luminance
  * 默认紫调，在暗底上则"深字压深底"，用户看到的就是**字看不清**。
  *
  * 设计意图：LX 的 token 是唯一色彩来源，M3 只是组件实现细节。
+ *
+ * @param pageAlpha 页面级表面的不透明度（1f = 原样）。动态背景激活时传
+ *   [PAGE_SURFACE_ALPHA]，让**所有** M3 组件（开关轨道 / 滑杆非激活轨 / 复选框描边 /
+ *   输入框 / 分隔线）都跟着透出封面色 —— 否则这些组件默认色是不透明 `surfaceVariant`
+ *   与 `outline`，叠在透色卡片上就成了「外边框一种颜色、内部另一种颜色」的两截色。
+ *   模态层（AlertDialog / ModalBottomSheet / DropdownMenu）各自显式传了
+ *   `containerColor = colors.surface`，不受此参数影响，仍保持不透明。
  */
-internal fun LXColorScheme.toMaterialColorScheme(): ColorScheme {
+internal fun LXColorScheme.toMaterialColorScheme(pageAlpha: Float = 1f): ColorScheme {
     val isLight = bg.luminance() > 0.5f
     val base = if (isLight) lightColorScheme() else darkColorScheme()
-    val errorColor = if (isLight) Color(0xFFB3261E) else Color(0xFFF2B8B5)
-    val onErrorColor = if (isLight) Color(0xFFFFFFFF) else Color(0xFF601410)
+    // 危险色沿用各主题的 `--danger`（不再吃 M3 默认红，那是游离颜色）
+    val errorColor = danger
+    val onErrorColor = if (danger.luminance() > 0.5f) Color(0xFF1A1313) else Color(0xFFF7EFEC)
+
+    // 页面级表面统一透气；hairline 本身就是低 alpha 叠色，不再二次压暗
+    val surf = surface.copy(alpha = pageAlpha)
+    val surfVar = bg2.copy(alpha = pageAlpha)
+    val pageBg = bg.copy(alpha = pageAlpha)
 
     return base.copy(
         primary = accent,
@@ -30,22 +43,24 @@ internal fun LXColorScheme.toMaterialColorScheme(): ColorScheme {
         onPrimaryContainer = bg,
         secondary = accent,
         onSecondary = bg,
-        secondaryContainer = bg2,
+        secondaryContainer = surfVar,
         onSecondaryContainer = ink1,
         tertiary = accent,
         onTertiary = bg,
-        background = bg,
+        background = pageBg,
         onBackground = ink1,
-        surface = surface,
+        surface = surf,
         onSurface = ink1,
-        surfaceVariant = bg2,
+        surfaceVariant = surfVar,
         onSurfaceVariant = ink2,
-        surfaceContainer = surface,
-        surfaceContainerLow = surface,
-        surfaceContainerLowest = bg,
-        surfaceContainerHigh = surface,
-        surfaceContainerHighest = bg2,
-        outline = ink3,
+        surfaceContainer = surf,
+        surfaceContainerLow = surf,
+        surfaceContainerLowest = surf,
+        surfaceContainerHigh = surf,
+        surfaceContainerHighest = surfVar,
+        // ⚠️ 只有 surface 家族是**不透明实色**，动态背景时要按 pageAlpha 透气；
+        // `hairline` / `inset` 本身就是低 alpha 叠色，绝不能再次改 alpha（会变实心）。
+        outline = ink3.copy(alpha = pageAlpha),
         outlineVariant = hairline,
         error = errorColor,
         onError = onErrorColor,

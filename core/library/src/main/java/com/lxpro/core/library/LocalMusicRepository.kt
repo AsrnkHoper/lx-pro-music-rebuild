@@ -6,15 +6,22 @@ import com.lxpro.core.database.dao.LocalTrackDao
 import com.lxpro.core.database.dao.SafRootDao
 import com.lxpro.core.database.entity.LocalTrackEntity
 import com.lxpro.core.database.entity.SafRootEntity
+import com.lxpro.core.datastore.SettingsRepository
 import com.lxpro.core.model.LOCAL_ART_PREFIX
 import com.lxpro.core.model.LOCAL_SOURCE_ID
 import com.lxpro.core.model.LocalSourceKind
 import com.lxpro.core.model.Song
+import com.lxpro.core.model.SongFingerprint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,7 +45,19 @@ class LocalMusicRepository @Inject constructor(
     private val safRootDao: SafRootDao,
     private val scanner: LocalMusicScanner,
     private val lyricsProvider: LocalLyricsProvider,
+    settings: SettingsRepository,
 ) {
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    init {
+        // 「忽略短于 30 秒的文件」：开 = 30s，关 = 10s（只滤提示音碎片）
+        scope.launch {
+            settings.ignoreShortAudio.collect { ignore ->
+                scanner.minDurationMs = if (ignore) 30_000L else 10_000L
+            }
+        }
+    }
 
     /**
      * 曲目列表。**已按指纹去重**：同一首歌既被媒体库索引、又被 SAF 目录扫到时只显示一条。
@@ -101,6 +120,54 @@ class LocalMusicRepository @Inject constructor(
         safRootDao.delete(treeUri)
         dao.deleteBySafRoot(treeUri)
         refreshCache()
+    }
+
+    /**
+     * 下载完成 → 登记进本地曲库（15 §6.2「完成后自动入本地库」，双模式闭环的关键）。
+     *
+     * `sourceKind = download` 是刻意的：媒体库扫描与 SAF 清除都不会碰这类行，
+     * 否则下一次扫描就会把下载来的曲目删掉（见 [LocalSourceKind.DOWNLOAD]）。
+     */
+    suspend fun registerDownloadedFile(file: File, song: Song) {
+        val now = System.currentTimeMillis()
+        dao.upsertAll(
+            listOf(
+                LocalTrackEntity(
+                    uri = "file://${file.absolutePath}",
+                    title = song.name.ifBlank { file.nameWithoutExtension },
+                    artist = song.singer,
+                    album = song.albumName,
+                    durationMs = (song.interval ?: 0L) * 1000L,
+                    sizeBytes = file.length(),
+                    mimeType = guessMimeType(file.extension),
+                    folder = file.parent,
+                    dateAddedSec = now / 1000,
+                    fingerprint = SongFingerprint.of(song),
+                    indexedAt = now,
+                    lastScanBatch = now,
+                    sourceKind = LocalSourceKind.DOWNLOAD,
+                    safRootUri = null,
+                    lrcUri = null,
+                ),
+            ),
+        )
+        refreshCache()
+    }
+
+    /** 删除下载任务时连带把索引行一起撤掉（文件已不在，留着就是死链） */
+    suspend fun unregisterDownloadedFile(file: File) {
+        dao.findByUri("file://${file.absolutePath}")?.let { dao.deleteByUri(it.uri) }
+        refreshCache()
+    }
+
+    private fun guessMimeType(extension: String): String = when (extension.lowercase()) {
+        "mp3" -> "audio/mpeg"
+        "flac" -> "audio/flac"
+        "m4a" -> "audio/mp4"
+        "aac" -> "audio/aac"
+        "ogg", "opus" -> "audio/ogg"
+        "wav" -> "audio/wav"
+        else -> "audio/*"
     }
 
     /** 全量扫描：媒体库 + 所有已授权目录。 */

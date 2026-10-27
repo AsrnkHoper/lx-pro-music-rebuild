@@ -17,3 +17,11 @@ build/
 *.keystore
 !debug.keystore
 keystore.properties
+# 第三方社区音源脚本不入库（合规：不分发音源脚本）——本地放入 androidTest/assets 后测试自动启用
+app/src/androidTest/assets/lx_flower.js
+app/src/androidTest/assets/lx_lx.js
+app/src/androidTest/assets/lx_sixyin.js
+app/src/androidTest/assets/yuxi.js
+
+# 内部工具（文案生成等），不随仓库分发
+tools/

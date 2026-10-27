@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 系统媒体卡片的「桌面歌词关」按钮：LRC 描边字形 + 斜杠（对齐 LX 的关闭态样式） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- L -->
+    <path
+        android:pathData="M4.5,5.5 L4.5,18 L9.5,18"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- R -->
+    <path
+        android:pathData="M12,18 L12,6 L14.6,6 A2.6,2.6 0 0 1 14.6,11.2 L12,11.2 M14.2,11.2 L17.2,18"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- C -->
+    <path
+        android:pathData="M22.8,8.6 A4.6,4.6 0 1 0 22.8,15.4"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- 斜杠（关） -->
+    <path
+        android:pathData="M3.5,21 L20.5,3"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round" />
+</vector>

@@ -50,10 +50,18 @@ include(":core:network")
 include(":core:media")
 include(":core:library")
 include(":core:playlist")
+include(":core:stats")
+include(":core:download")
 
 // 音源体系
 include(":source:api")
 include(":source:bilibili")
+include(":source:kw")
+include(":source:tx")
+include(":source:wy")
+include(":source:kg")
+include(":source:mg")
+include(":source:script")
 
 // 功能模块（其余模块随里程碑增设，见 06-开发路线图与里程碑）
 include(":feature:home")
@@ -61,3 +69,10 @@ include(":feature:search")
 include(":feature:player")
 include(":feature:library")
 include(":feature:playlist")
+include(":feature:stats")
+include(":feature:download")
+include(":feature:noise")
+include(":feature:eq")
+
+// M5 性能基线：Macrobenchmark + Baseline Profile 生成器
+include(":benchmark")

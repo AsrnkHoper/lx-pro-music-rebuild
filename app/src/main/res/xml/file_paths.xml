@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 分享给外部应用的本地曲目：只开放下载目录（filesDir/downloads） -->
+<paths>
+    <files-path name="downloads" path="downloads/" />
+</paths>

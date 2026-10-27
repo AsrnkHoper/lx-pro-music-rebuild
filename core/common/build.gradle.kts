@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.lxpro.android.library)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -8,5 +9,6 @@ android {
 
 dependencies {
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
 }

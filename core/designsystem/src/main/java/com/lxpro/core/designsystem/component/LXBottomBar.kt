@@ -22,12 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.lxpro.core.designsystem.theme.LXDimens
 import com.lxpro.core.designsystem.theme.LXMotion
 import com.lxpro.core.designsystem.theme.LXTheme
 import com.lxpro.core.designsystem.theme.LXType
+import com.lxpro.core.designsystem.tutorial.tutorialTarget
 
 /** 一个底部 Tab 项 */
 data class LXTabItem(
@@ -39,7 +41,8 @@ data class LXTabItem(
 /**
  * 底部 5 Tab（14 §4.1）。
  *
- * - 高 [LXDimens.tabBarHeight]（64dp），**不透明**背景 —— 半透明会让滚动内容透出来（原型实测踩坑）
+ * - 高 [LXDimens.tabBarHeight]（64dp），**不透明**背景 —— 半透明会让滚动内容透出来（原型实测踩坑）；
+ *   动态背景激活时例外：栏底透明让封面透出（内容区在上方 weight(1f) 内，不会滚到栏下，无原型那个坑）
  * - 选中 `accent`，未选中 `ink3`
  * - 平面语言下靠 1dp 发丝线分界，不用阴影
  * - 自身吃掉导航栏安全区（背景铺到底，图标不被系统手势条压住）
@@ -53,7 +56,11 @@ fun LXBottomBar(
 ) {
     val colors = LXTheme.colors
 
-    Column(modifier = modifier.fillMaxWidth().background(colors.bg)) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(if (LXTheme.dynamicBgActive) Color.Transparent else colors.bg),
+    ) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(colors.hairline))
 
         Row(
@@ -73,6 +80,8 @@ fun LXBottomBar(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
+                        // 教程高亮目标：遮罩层按这个 id 挖洞，用户能直接点到真实 Tab
+                        .tutorialTarget("tab_${item.route}")
                         .clickable { onSelect(item) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
